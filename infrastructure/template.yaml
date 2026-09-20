@@ -78,7 +78,7 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !GetAtt UtpAssistantGoogleFunction.Arn
-              
+
         - Statement:
             - Sid: WriteAuditRecords
               Effect: Allow
@@ -151,6 +151,42 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/hubspot-*"
+
+  UtpAssistantDocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+      VersioningConfiguration:
+        Status: Enabled
+
+  UtpAssistantDocumentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: utp-assistant-documents
+      CodeUri: ../backend/functions/documents/
+      Handler: app.lambda_handler
+
+      Environment:
+        Variables:
+          DOCUMENTS_BUCKET: !Ref UtpAssistantDocumentsBucket
+
+      Policies:
+        - Statement:
+            - Sid: UploadDocumentsToBucket
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "${UtpAssistantDocumentsBucket.Arn}/*"
 
 Outputs:
 
