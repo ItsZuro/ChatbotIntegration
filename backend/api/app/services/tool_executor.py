@@ -1,0 +1,74 @@
+import json
+
+import boto3
+
+from app.core.config import get_settings
+
+
+settings = get_settings()
+
+lambda_client = boto3.client(
+    "lambda",
+    region_name=settings.aws_region,
+)
+
+
+def invoke_lambda(
+    function_name: str,
+    arguments: dict,
+) -> dict:
+    response = lambda_client.invoke(
+        FunctionName=function_name,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(
+            arguments,
+            ensure_ascii=False,
+        ).encode("utf-8"),
+    )
+
+    payload = json.loads(
+        response["Payload"]
+        .read()
+        .decode("utf-8")
+    )
+
+    if "FunctionError" in response:
+        return {
+            "success": False,
+            "error": (
+                f"La función {function_name} produjo "
+                "un error interno."
+            ),
+        }
+
+    return payload
+
+
+def execute_tool(
+    tool_name: str,
+    arguments: dict,
+) -> dict:
+    if tool_name == "actualizar_contacto_en_hubspot":
+        return invoke_lambda(
+            function_name=settings.hubspot_function_name,
+            arguments=arguments,
+        )
+
+    if tool_name == "crear_ticket_en_jira":
+        return invoke_lambda(
+            function_name=settings.jira_function_name,
+            arguments=arguments,
+        )
+
+    if tool_name == "agendar_reunion_en_google_calendar":
+        return invoke_lambda(
+            function_name=settings.google_function_name,
+            arguments=arguments,
+        )
+
+    return {
+        "success": False,
+        "error": (
+            f"Herramienta no implementada: {tool_name}"
+        ),
+    }

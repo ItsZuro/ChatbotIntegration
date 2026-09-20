@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+openai==3.16.2
+boto3
+botocore[crt]
