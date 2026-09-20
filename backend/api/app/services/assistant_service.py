@@ -11,10 +11,12 @@ MAX_TOOL_ROUNDS = 5
 def run_assistant(
     api_key: str,
     user_message: str,
+    previous_response_id: str | None = None,
 ) -> dict:
     assistant_result = process_message(
         api_key=api_key,
         user_message=user_message,
+        previous_response_id=previous_response_id,
     )
 
     executed_tools = []

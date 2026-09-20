@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     documents_function_name: str = "utp-assistant-documents"
 
     audit_table_name: str = "utp-assistant-audit"
+    conversations_table_name: str = "utp-assistant-conversations"
 
     model_config = SettingsConfigDict(
         env_file=".env",

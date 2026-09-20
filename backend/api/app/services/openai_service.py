@@ -13,17 +13,27 @@ settings = get_settings()
 def process_message(
     api_key: str,
     user_message: str,
+    previous_response_id: str | None = None,
 ) -> dict:
     client = OpenAI(api_key=api_key)
 
-    response = client.responses.create(
-        model=settings.openai_model,
-        reasoning={
+    request_params = {
+        "model": settings.openai_model,
+        "reasoning": {
             "effort": settings.openai_reasoning_effort
         },
-        instructions=SYSTEM_PROMPT,
-        tools=TOOLS,
-        input=user_message,
+        "instructions": SYSTEM_PROMPT,
+        "tools": TOOLS,
+        "input": user_message,
+    }
+
+    if previous_response_id:
+        request_params["previous_response_id"] = (
+            previous_response_id
+        )
+
+    response = client.responses.create(
+        **request_params
     )
 
     function_calls = []
