@@ -1,5 +1,7 @@
 from openai import OpenAI
 
+from system_prompt import SYSTEM_PROMPT
+
 
 MODEL = "gpt-5.6-terra"
 
@@ -12,10 +14,7 @@ def generate_response(api_key: str, user_message: str) -> str:
         reasoning={
             "effort": "low"
         },
-        instructions=(
-            "Eres UTP Assistant, un asistente profesional de UTPConsult. "
-            "Responde de forma clara, breve y profesional."
-        ),
+        instructions=SYSTEM_PROMPT,
         input=user_message
     )
 
