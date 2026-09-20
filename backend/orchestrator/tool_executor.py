@@ -43,6 +43,12 @@ def execute_tool(tool_name: str, arguments: dict) -> dict:
             arguments=arguments
         )
 
+    if tool_name == "agendar_reunion_en_google_calendar":
+        return invoke_lambda(
+            function_name=os.environ["GOOGLE_FUNCTION_NAME"],
+            arguments=arguments
+        )
+
     return {
         "success": False,
         "error": f"Herramienta no implementada: {tool_name}"

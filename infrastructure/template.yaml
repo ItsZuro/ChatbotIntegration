@@ -30,6 +30,7 @@ Resources:
           OPENAI_SECRET_ID: utp-assistant/openai
           HUBSPOT_FUNCTION_NAME: !Ref UtpAssistantHubSpotFunction
           JIRA_FUNCTION_NAME: !Ref UtpAssistantJiraFunction
+          GOOGLE_FUNCTION_NAME: !Ref UtpAssistantGoogleFunction
 
       Policies:
         - Statement:
@@ -52,6 +53,13 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !GetAtt UtpAssistantJiraFunction.Arn
+              
+        - Statement:
+            - Sid: InvokeGoogleFunction
+              Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt UtpAssistantGoogleFunction.Arn
 
       Events:
         AssistantMessage:
@@ -80,6 +88,25 @@ Resources:
                 - secretsmanager:GetSecretValue
               Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/jira-*"
 
+  UtpAssistantGoogleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: utp-assistant-google
+      CodeUri: ../backend/functions/google/
+      Handler: app.lambda_handler
+
+      Environment:
+        Variables:
+          GOOGLE_SECRET_ID: utp-assistant/google
+          GOOGLE_TIME_ZONE: America/Lima
+
+      Policies:
+        - Statement:
+            - Sid: ReadGoogleSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/google-*"
 
   UtpAssistantHubSpotFunction:
     Type: AWS::Serverless::Function
