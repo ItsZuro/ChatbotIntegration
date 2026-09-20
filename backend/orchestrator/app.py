@@ -3,7 +3,7 @@ import os
 
 import boto3
 
-from openai_service import generate_response
+from openai_service import process_message
 
 
 secrets_client = boto3.client("secretsmanager")
@@ -40,7 +40,7 @@ def lambda_handler(event, context):
 
         api_key = get_openai_api_key()
 
-        assistant_response = generate_response(
+        assistant_result = process_message(
             api_key=api_key,
             user_message=message
         )
@@ -50,13 +50,15 @@ def lambda_handler(event, context):
             "headers": {
                 "Content-Type": "application/json"
             },
-            "body": json.dumps({
-                "response": assistant_response
-            })
+           "body": json.dumps(
+                assistant_result,
+                ensure_ascii=False
+            )
         }
 
     except Exception as error:
         print(
+
             f"Error processing request: {type(error).__name__}"
         )
 
