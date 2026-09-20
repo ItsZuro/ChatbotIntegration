@@ -29,6 +29,7 @@ Resources:
       Environment:
         Variables:
           OPENAI_SECRET_ID: utp-assistant/openai
+          HUBSPOT_FUNCTION_NAME: !Ref UtpAssistantHubSpotFunction
 
       Policies:
         - Statement:
@@ -37,6 +38,12 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/openai-*"
+        - Statement:
+            - Sid: InvokeHubSpotFunction
+              Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt UtpAssistantHubSpotFunction.Arn
 
       Events:
         AssistantMessage:
@@ -45,6 +52,8 @@ Resources:
             ApiId: !Ref UtpAssistantHttpApi
             Path: /assistant/message
             Method: POST
+
+
 
   UtpAssistantHubSpotFunction:
     Type: AWS::Serverless::Function
