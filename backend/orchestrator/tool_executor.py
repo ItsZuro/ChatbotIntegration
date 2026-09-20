@@ -7,9 +7,7 @@ import boto3
 lambda_client = boto3.client("lambda")
 
 
-def invoke_hubspot(arguments: dict) -> dict:
-    function_name = os.environ["HUBSPOT_FUNCTION_NAME"]
-
+def invoke_lambda(function_name: str, arguments: dict) -> dict:
     response = lambda_client.invoke(
         FunctionName=function_name,
         InvocationType="RequestResponse",
@@ -23,7 +21,10 @@ def invoke_hubspot(arguments: dict) -> dict:
     if "FunctionError" in response:
         return {
             "success": False,
-            "error": "La función de HubSpot produjo un error interno."
+            "error": (
+                f"La función {function_name} produjo "
+                "un error interno."
+            )
         }
 
     return payload
@@ -31,7 +32,16 @@ def invoke_hubspot(arguments: dict) -> dict:
 
 def execute_tool(tool_name: str, arguments: dict) -> dict:
     if tool_name == "actualizar_contacto_en_hubspot":
-        return invoke_hubspot(arguments)
+        return invoke_lambda(
+            function_name=os.environ["HUBSPOT_FUNCTION_NAME"],
+            arguments=arguments
+        )
+
+    if tool_name == "crear_ticket_en_jira":
+        return invoke_lambda(
+            function_name=os.environ["JIRA_FUNCTION_NAME"],
+            arguments=arguments
+        )
 
     return {
         "success": False,

@@ -29,6 +29,7 @@ Resources:
         Variables:
           OPENAI_SECRET_ID: utp-assistant/openai
           HUBSPOT_FUNCTION_NAME: !Ref UtpAssistantHubSpotFunction
+          JIRA_FUNCTION_NAME: !Ref UtpAssistantJiraFunction
 
       Policies:
         - Statement:
@@ -37,12 +38,20 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/openai-*"
+              
         - Statement:
             - Sid: InvokeHubSpotFunction
               Effect: Allow
               Action:
                 - lambda:InvokeFunction
               Resource: !GetAtt UtpAssistantHubSpotFunction.Arn
+
+        - Statement:
+            - Sid: InvokeJiraFunction
+              Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt UtpAssistantJiraFunction.Arn
 
       Events:
         AssistantMessage:
