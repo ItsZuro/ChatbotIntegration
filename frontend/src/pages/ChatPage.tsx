@@ -3,54 +3,96 @@ import {
   Box,
   Drawer,
   Group,
+  Loader,
   ScrollArea,
   Stack,
   Text,
   ThemeIcon,
   Tooltip,
-} from '@mantine/core';
+} from "@mantine/core";
 
 import {
   notifications,
-} from '@mantine/notifications';
+} from "@mantine/notifications";
+
+import {
+  useDisclosure,
+} from "@mantine/hooks";
+
+import {
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 
 import {
   Bot,
   Info,
   MessageSquarePlus,
-} from 'lucide-react';
+} from "lucide-react";
 
 import {
-  useDisclosure,
-} from '@mantine/hooks';
-
-import {
+  useEffect,
+  useRef,
   useState,
-} from 'react';
+} from "react";
 
 import {
   ChatComposer,
-} from '../features/chat/components/ChatComposer';
+} from "../features/chat/components/ChatComposer";
 
 import {
   EmptyChatState,
-} from '../features/chat/components/EmptyChatState';
+} from "../features/chat/components/EmptyChatState";
 
 import {
   RequestProgress,
-} from '../features/requests/components/RequestProgress';
+} from "../features/requests/components/RequestProgress";
 
 import {
   RequestResult,
-} from '../features/requests/components/RequestResult';
+} from "../features/requests/components/RequestResult";
 
-import {
-  useSubmitRequest,
-} from '../features/requests/hooks/useSubmitRequest';
+import type {
+  RequestStage,
+} from "../features/requests/hooks/useSubmitRequest";
 
 import type {
   SelectedDocument,
-} from '../features/requests/types/request.types';
+} from "../features/requests/types/request.types";
+
+import {
+  useConversationMessages,
+  useCreateConversation,
+  useSendConversationMessage,
+} from "../features/chat/hooks/useConversations";
+
+import {
+  createUploadUrl,
+  uploadDocument,
+} from "../services/documents.service";
+
+import {
+  deleteConversation,
+} from "../services/conversations.service";
+
+import type {
+  SendConversationMessageResponse,
+} from "../types/api.types";
+
+
+function buildConversationTitle(
+  message: string
+) {
+  const normalized = message
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (normalized.length <= 48) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 45)}...`;
+}
 
 
 export function ChatPage() {
@@ -59,10 +101,24 @@ export function ChatPage() {
     contextHandlers,
   ] = useDisclosure(false);
 
+  const navigate = useNavigate();
+
+  const pathname = useRouterState({
+    select: (state) =>
+      state.location.pathname,
+  });
+
+  const conversationId =
+    pathname.startsWith("/chat/")
+      ? decodeURIComponent(
+          pathname.slice("/chat/".length)
+        )
+      : null;
+
   const [
     message,
     setMessage,
-  ] = useState('');
+  ] = useState("");
 
   const [
     document,
@@ -73,79 +129,264 @@ export function ChatPage() {
     );
 
   const [
-    submittedMessage,
-    setSubmittedMessage,
+    pendingUserMessage,
+    setPendingUserMessage,
   ] =
     useState<string | null>(
       null
     );
 
-  const {
-    mutateAsync,
-    data,
-    error,
-    isPending,
+  const [
     stage,
-    reset,
-  } = useSubmitRequest();
+    setStage,
+  ] =
+    useState<RequestStage>(
+      "idle"
+    );
+
+  const [
+    lastExecution,
+    setLastExecution,
+  ] =
+    useState<SendConversationMessageResponse | null>(
+      null
+    );
+
+  const viewportRef =
+    useRef<HTMLDivElement>(null);
+
+
+  const {
+    data: persistedMessages = [],
+    isLoading: messagesLoading,
+    error: messagesError,
+  } = useConversationMessages(
+    conversationId
+  );
+
+  const {
+    mutateAsync: createConversation,
+    isPending: creatingConversation,
+  } = useCreateConversation();
+
+  const {
+    mutateAsync: sendConversationMessage,
+    isPending: sendingMessage,
+  } = useSendConversationMessage();
+
+
+  const loading =
+    creatingConversation ||
+    sendingMessage ||
+    (
+      stage !== "idle" &&
+      stage !== "success"
+    );
 
 
   const hasConversation =
     Boolean(
-      submittedMessage ||
-      data ||
-      isPending
+      conversationId ||
+      persistedMessages.length > 0 ||
+      pendingUserMessage ||
+      loading
     );
+
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const viewport =
+        viewportRef.current;
+
+      if (!viewport) {
+        return;
+      }
+
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+  }, [
+    persistedMessages.length,
+    pendingUserMessage,
+    loading,
+  ]);
 
 
   const handleSubmit = async () => {
     const cleanMessage =
       message.trim();
 
-    if (!cleanMessage) {
+    if (
+      !cleanMessage ||
+      loading
+    ) {
       return;
     }
 
-    setSubmittedMessage(
+    let targetConversationId =
+      conversationId;
+
+    let createdConversationId:
+      | string
+      | null = null;
+
+    setPendingUserMessage(
       cleanMessage
     );
 
-    reset();
+    setLastExecution(null);
+
+    setStage(
+      document
+        ? "preparing-upload"
+        : "processing"
+    );
 
     try {
-      await mutateAsync({
-        message: cleanMessage,
-        document,
-      });
+      if (!targetConversationId) {
+        const conversation =
+          await createConversation({
+            title:
+              buildConversationTitle(
+                cleanMessage
+              ),
+          });
 
-      setMessage('');
+        targetConversationId =
+          conversation.conversation_id;
+
+        createdConversationId =
+          conversation.conversation_id;
+      }
+
+      let objectKey:
+        | string
+        | undefined;
+
+      if (document) {
+        setStage(
+          "preparing-upload"
+        );
+
+        const uploadData =
+          await createUploadUrl({
+            fileName:
+              document.name,
+            contentType:
+              document.contentType,
+          });
+
+        setStage(
+          "uploading"
+        );
+
+        await uploadDocument(
+          uploadData.upload_url,
+          document.file
+        );
+
+        objectKey =
+          uploadData.object_key;
+      }
+
+      setStage(
+        "processing"
+      );
+
+      const result =
+        await sendConversationMessage({
+          conversationId:
+            targetConversationId,
+          message:
+            cleanMessage,
+          objectKey,
+        });
+
+      setLastExecution(
+        result
+      );
+
+      setMessage("");
       setDocument(null);
 
-      notifications.show({
-        title:
-          'Solicitud completada',
-        message:
-          'UTP Assistant terminó de procesarla.',
-        color: 'teal',
-      });
+      setStage(
+        "success"
+      );
+
+      setPendingUserMessage(
+        null
+      );
+
+      if (!conversationId) {
+        await navigate({
+          to: "/chat/$conversationId",
+          params: {
+            conversationId:
+              targetConversationId,
+          },
+        });
+      }
+
+      setStage(
+        "idle"
+      );
     } catch {
+      setPendingUserMessage(
+        null
+      );
+
+      setStage(
+        "idle"
+      );
+
+      /*
+       * Si la conversación se creó
+       * únicamente para este primer
+       * mensaje y el envío falló,
+       * la eliminamos para no dejar
+       * chats vacíos en el sidebar.
+       */
+      if (
+        createdConversationId &&
+        !conversationId
+      ) {
+        try {
+          await deleteConversation(
+            createdConversationId
+          );
+        } catch {
+          // El fallo de limpieza no
+          // debe ocultar el error real.
+        }
+      }
+
       notifications.show({
         title:
-          'No se pudo procesar',
+          "No se pudo enviar el mensaje",
         message:
-          'Revisa la solicitud e inténtalo nuevamente.',
-        color: 'red',
+          "Inténtalo nuevamente.",
+        color: "red",
       });
     }
   };
 
 
-  const handleClear = () => {
-    reset();
-    setMessage('');
-    setDocument(null);
-    setSubmittedMessage(null);
-  };
+  const handleNewConversation =
+    async () => {
+      setMessage("");
+      setDocument(null);
+      setPendingUserMessage(
+        null
+      );
+      setLastExecution(null);
+      setStage("idle");
+
+      await navigate({
+        to: "/",
+      });
+    };
 
 
   return (
@@ -155,8 +396,8 @@ export function ChatPage() {
         mx="auto"
         h="calc(100vh - 82px)"
         style={{
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <Group
@@ -181,7 +422,7 @@ export function ChatPage() {
               variant="subtle"
               color="gray"
               onClick={
-                handleClear
+                handleNewConversation
               }
             >
               <MessageSquarePlus
@@ -191,12 +432,13 @@ export function ChatPage() {
           </Tooltip>
         </Group>
 
+
         {!hasConversation ? (
           <Box
             style={{
               flex: 1,
-              display: 'flex',
-              alignItems: 'center',
+              display: "flex",
+              alignItems: "center",
             }}
             px="lg"
             pb={80}
@@ -204,7 +446,7 @@ export function ChatPage() {
             <EmptyChatState
               message={message}
               document={document}
-              loading={isPending}
+              loading={loading}
               onMessageChange={
                 setMessage
               }
@@ -219,6 +461,9 @@ export function ChatPage() {
         ) : (
           <>
             <ScrollArea
+              viewportRef={
+                viewportRef
+              }
               style={{
                 flex: 1,
               }}
@@ -226,11 +471,110 @@ export function ChatPage() {
               <Stack
                 maw={820}
                 mx="auto"
-                gap="xl"
+                gap="lg"
                 py="xl"
                 px="md"
               >
-                {submittedMessage && (
+                {messagesLoading &&
+                  conversationId && (
+                    <Group
+                      justify="center"
+                      py="xl"
+                    >
+                      <Loader
+                        size="sm"
+                        color="violet"
+                      />
+
+                      <Text
+                        size="sm"
+                        c="dimmed"
+                      >
+                        Cargando conversación...
+                      </Text>
+                    </Group>
+                  )}
+
+
+                {persistedMessages.map(
+                  (
+                    persistedMessage
+                  ) => {
+                    if (
+                      persistedMessage.role ===
+                      "user"
+                    ) {
+                      return (
+                        <Group
+                          key={
+                            persistedMessage.message_id
+                          }
+                          justify="flex-end"
+                        >
+                          <Box
+                            bg="violet.9"
+                            px="md"
+                            py="sm"
+                            maw="75%"
+                            style={{
+                              borderRadius: 18,
+                            }}
+                          >
+                            <Text
+                              size="sm"
+                              lh={1.6}
+                            >
+                              {
+                                persistedMessage.content
+                              }
+                            </Text>
+                          </Box>
+                        </Group>
+                      );
+                    }
+
+                    return (
+                      <Group
+                        key={
+                          persistedMessage.message_id
+                        }
+                        align="flex-start"
+                        wrap="nowrap"
+                      >
+                        <ThemeIcon
+                          size={30}
+                          radius="xl"
+                          color="violet"
+                          variant="light"
+                          mt={4}
+                        >
+                          <Bot
+                            size={16}
+                          />
+                        </ThemeIcon>
+
+                        <Box
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <RequestResult
+                            result={{
+                              response:
+                                persistedMessage.content,
+                              executed_tools:
+                                persistedMessage.executed_tools,
+                            }}
+                          />
+                        </Box>
+                      </Group>
+                    );
+                  }
+                )}
+
+
+                {pendingUserMessage && (
                   <Group
                     justify="flex-end"
                   >
@@ -248,20 +592,15 @@ export function ChatPage() {
                         lh={1.6}
                       >
                         {
-                          submittedMessage
+                          pendingUserMessage
                         }
                       </Text>
                     </Box>
                   </Group>
                 )}
 
-                {isPending && (
-                  <RequestProgress
-                    stage={stage}
-                  />
-                )}
 
-                {data && (
+                {loading && (
                   <Group
                     align="flex-start"
                     wrap="nowrap"
@@ -273,32 +612,36 @@ export function ChatPage() {
                       variant="light"
                       mt={4}
                     >
-                      <Bot size={16} />
+                      <Bot
+                        size={16}
+                      />
                     </ThemeIcon>
 
-                    <Box
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                      }}
-                    >
-                      <RequestResult
-                        result={data}
-                      />
-                    </Box>
+                    <RequestProgress
+                      stage={stage}
+                      hasDocument={
+                        Boolean(
+                          document
+                        )
+                      }
+                    />
                   </Group>
                 )}
 
-                {error && (
+
+                {messagesError && (
                   <Text
                     c="red"
                     size="sm"
                   >
-                    {error.message}
+                    No se pudo cargar
+                    el historial de esta
+                    conversación.
                   </Text>
                 )}
               </Stack>
             </ScrollArea>
+
 
             <Box
               pt="sm"
@@ -308,7 +651,7 @@ export function ChatPage() {
               <ChatComposer
                 message={message}
                 document={document}
-                loading={isPending}
+                loading={loading}
                 onMessageChange={
                   setMessage
                 }
@@ -326,12 +669,15 @@ export function ChatPage() {
                 ta="center"
                 mt={6}
               >
-                UTP Assistant puede ejecutar acciones en servicios externos.
+                UTP Assistant puede
+                ejecutar acciones en
+                servicios externos.
               </Text>
             </Box>
           </>
         )}
       </Box>
+
 
       <Drawer
         opened={contextOpened}
@@ -342,7 +688,7 @@ export function ChatPage() {
         title="Contexto de ejecución"
         size={340}
       >
-        {data ? (
+        {lastExecution ? (
           <Stack gap="lg">
             <Box>
               <Text
@@ -357,10 +703,12 @@ export function ChatPage() {
                 fw={500}
                 style={{
                   wordBreak:
-                    'break-all',
+                    "break-all",
                 }}
               >
-                {data.request_id}
+                {
+                  lastExecution.request_id
+                }
               </Text>
             </Box>
 
@@ -372,11 +720,10 @@ export function ChatPage() {
                 Acciones ejecutadas
               </Text>
 
-              <Text
-                fw={600}
-              >
+              <Text fw={600}>
                 {
-                  data.executed_tools
+                  lastExecution
+                    .executed_tools
                     .length
                 }
               </Text>
@@ -387,9 +734,9 @@ export function ChatPage() {
             size="sm"
             c="dimmed"
           >
-            Aquí aparecerá información de la
-            ejecución cuando UTP Assistant
-            procese una solicitud.
+            Los detalles técnicos de
+            la última ejecución de esta
+            sesión aparecerán aquí.
           </Text>
         )}
       </Drawer>

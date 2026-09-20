@@ -23,7 +23,10 @@ import type {
 
 
 interface RequestResultProps {
-  result: AssistantResponse;
+  result: Pick<
+    AssistantResponse,
+    "response" | "executed_tools"
+  >;
 }
 
 
