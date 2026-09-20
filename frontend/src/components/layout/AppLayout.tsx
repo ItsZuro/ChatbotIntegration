@@ -6,6 +6,7 @@ import {
   Burger,
   Button,
   Group,
+  Menu,
   NavLink,
   ScrollArea,
   Stack,
@@ -15,15 +16,19 @@ import {
   Tooltip,
 } from "@mantine/core";
 
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import {
   Bot,
   FileText,
   History,
   LayoutDashboard,
   MessageSquarePlus,
+  MoreVertical,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  Trash2,
 } from "lucide-react";
 
 import { useDisclosure } from "@mantine/hooks";
@@ -31,6 +36,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { useState } from "react";
+
+import {
+  useConversations,
+  useDeleteConversation,
+} from "../../features/chat/hooks/useConversations";
 
 const operationsNavigation = [
   {
@@ -55,13 +65,26 @@ export function AppLayout() {
     useDisclosure(false);
 
   const [collapsed, setCollapsed] = useState(false);
+
+  const { mutateAsync: deleteConversation, isPending: deletingConversation } =
+    useDeleteConversation();
+
   const [conversationSearch, setConversationSearch] = useState("");
+
+  const { data: conversations = [], isLoading: conversationsLoading } =
+    useConversations();
 
   const navigate = useNavigate();
 
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+
+  const filteredConversations = conversations.filter((conversation) =>
+    conversation.title
+      .toLowerCase()
+      .includes(conversationSearch.trim().toLowerCase()),
+  );
 
   const navbarWidth = collapsed ? 76 : 238;
 
@@ -71,6 +94,68 @@ export function AppLayout() {
     });
 
     closeMobile();
+  };
+
+  const handleNewConversation = async () => {
+    await navigate({
+      to: "/",
+    });
+
+    closeMobile();
+  };
+
+  const handleOpenConversation = async (conversationId: string) => {
+    await navigate({
+      to: "/chat/$conversationId",
+      params: {
+        conversationId,
+      },
+    });
+
+    closeMobile();
+  };
+
+  const handleDeleteConversation = (conversationId: string, title: string) => {
+    modals.openConfirmModal({
+      title: "Eliminar conversación",
+      centered: true,
+      children: (
+        <Text size="sm">
+          ¿Seguro que deseas eliminar <strong>{title}</strong>? Esta acción no
+          se puede deshacer.
+        </Text>
+      ),
+      labels: {
+        confirm: "Eliminar",
+        cancel: "Cancelar",
+      },
+      confirmProps: {
+        color: "red",
+      },
+      onConfirm: async () => {
+        try {
+          await deleteConversation(conversationId);
+
+          if (pathname === `/chat/${conversationId}`) {
+            await navigate({
+              to: "/",
+            });
+          }
+
+          notifications.show({
+            title: "Conversación eliminada",
+            message: "El chat fue eliminado correctamente.",
+            color: "teal",
+          });
+        } catch {
+          notifications.show({
+            title: "No se pudo eliminar",
+            message: "Inténtalo nuevamente.",
+            color: "red",
+          });
+        }
+      },
+    });
   };
 
   return (
@@ -106,6 +191,7 @@ export function AppLayout() {
                 )}
               </ActionIcon>
             </Tooltip>
+
             <Burger
               opened={mobileOpened}
               onClick={toggleMobile}
@@ -148,6 +234,7 @@ export function AppLayout() {
           transition: "width 180ms ease",
         }}
       >
+        {/* Nuevo chat + buscador */}
         <AppShell.Section>
           {collapsed ? (
             <Tooltip label="Nuevo chat" position="right">
@@ -157,7 +244,7 @@ export function AppLayout() {
                 radius="md"
                 variant="light"
                 color="violet"
-                onClick={() => handleNavigate("/")}
+                onClick={handleNewConversation}
               >
                 <MessageSquarePlus size={19} />
               </ActionIcon>
@@ -170,7 +257,7 @@ export function AppLayout() {
               color="violet"
               radius="md"
               leftSection={<MessageSquarePlus size={18} />}
-              onClick={() => handleNavigate("/")}
+              onClick={handleNewConversation}
             >
               Nuevo chat
             </Button>
@@ -191,22 +278,109 @@ export function AppLayout() {
           )}
         </AppShell.Section>
 
+        {/* Conversaciones recientes */}
         <AppShell.Section grow component={ScrollArea} mt="lg">
           {!collapsed && (
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" mb="xs">
-              Recientes
-            </Text>
-          )}
-
-          {!collapsed && (
-            <Box px="sm" py="md">
-              <Text size="sm" c="dimmed" ta="center">
-                Aún no hay conversaciones guardadas.
+            <>
+              <Text
+                size="xs"
+                fw={700}
+                c="dimmed"
+                tt="uppercase"
+                px="sm"
+                mb="xs"
+              >
+                Recientes
               </Text>
-            </Box>
+
+              {conversationsLoading ? (
+                <Box px="sm" py="md">
+                  <Text size="sm" c="dimmed" ta="center">
+                    Cargando conversaciones...
+                  </Text>
+                </Box>
+              ) : filteredConversations.length > 0 ? (
+                <Stack gap={3}>
+                  {filteredConversations.map((conversation) => {
+                    const active =
+                      pathname === `/chat/${conversation.conversation_id}`;
+
+                    return (
+                      <Box
+                        key={conversation.conversation_id}
+                        style={{
+                          position: "relative",
+                        }}
+                      >
+                        <NavLink
+                          active={active}
+                          label={conversation.title}
+                          leftSection={<MessageSquarePlus size={17} />}
+                          color="violet"
+                          variant="light"
+                          onClick={() =>
+                            handleOpenConversation(conversation.conversation_id)
+                          }
+                          style={{
+                            borderRadius: 9,
+                            paddingRight: 38,
+                          }}
+                        />
+
+                        <Menu position="right-start" withinPortal>
+                          <Menu.Target>
+                            <ActionIcon
+                              variant="subtle"
+                              color="gray"
+                              size="sm"
+                              disabled={deletingConversation}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                              style={{
+                                position: "absolute",
+                                right: 6,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                              }}
+                            >
+                              <MoreVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+
+                          <Menu.Dropdown>
+                            <Menu.Item
+                              color="red"
+                              leftSection={<Trash2 size={15} />}
+                              onClick={() =>
+                                handleDeleteConversation(
+                                  conversation.conversation_id,
+                                  conversation.title,
+                                )
+                              }
+                            >
+                              Eliminar
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <Box px="sm" py="md">
+                  <Text size="sm" c="dimmed" ta="center">
+                    {conversationSearch
+                      ? "No se encontraron conversaciones."
+                      : "Aún no hay conversaciones guardadas."}
+                  </Text>
+                </Box>
+              )}
+            </>
           )}
         </AppShell.Section>
 
+        {/* Herramientas */}
         <AppShell.Section>
           {!collapsed && (
             <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" mb="xs">

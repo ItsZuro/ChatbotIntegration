@@ -19,6 +19,12 @@ const chatRoute = createRoute({
   component: ChatPage,
 });
 
+const conversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$conversationId",
+  component: ChatPage,
+});
+
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/dashboard",
@@ -33,6 +39,7 @@ const newRequestRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   chatRoute,
+  conversationRoute,
   dashboardRoute,
   newRequestRoute,
 ]);
