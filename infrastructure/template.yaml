@@ -46,6 +46,25 @@ Resources:
             Path: /assistant/message
             Method: POST
 
+  UtpAssistantHubSpotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: utp-assistant-hubspot
+      CodeUri: ../backend/functions/hubspot/
+      Handler: app.lambda_handler
+
+      Environment:
+        Variables:
+          HUBSPOT_SECRET_ID: utp-assistant/hubspot
+
+      Policies:
+        - Statement:
+            - Sid: ReadHubSpotSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/hubspot-*"
+
 Outputs:
 
   ApiUrl:
