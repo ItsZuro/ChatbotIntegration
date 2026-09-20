@@ -13,7 +13,6 @@ Globals:
       - x86_64
 
 Resources:
-
   UtpAssistantHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -53,6 +52,24 @@ Resources:
             Path: /assistant/message
             Method: POST
 
+  UtpAssistantJiraFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: utp-assistant-jira
+      CodeUri: ../backend/functions/jira/
+      Handler: app.lambda_handler
+
+      Environment:
+        Variables:
+          JIRA_SECRET_ID: utp-assistant/jira
+
+      Policies:
+        - Statement:
+            - Sid: ReadJiraSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/jira-*"
 
 
   UtpAssistantHubSpotFunction:

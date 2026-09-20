@@ -43,3 +43,5 @@ yarn-error.log*
 Thumbs.db
 
 hubspot-response.json
+
+jira-response.json
