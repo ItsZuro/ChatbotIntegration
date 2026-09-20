@@ -1,4 +1,8 @@
-from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Response,
+)
 
 from app.schemas.conversations import (
     CreateConversationRequest,
@@ -12,6 +16,7 @@ from app.services.conversation_service import (
     get_conversation,
     save_message,
     update_conversation_context,
+    delete_conversation,
 )
 from uuid import uuid4
 
@@ -157,4 +162,27 @@ def send_conversation_message(
             status_code=500,
             detail="No se pudo procesar el mensaje.",
         ) from exc
+
+@router.delete(
+    "/{conversation_id}",
+    status_code=204,
+)
+def remove_conversation(
+    conversation_id: str,
+):
+    deleted = delete_conversation(
+        conversation_id=conversation_id
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "La conversación no existe."
+            ),
+        )
+
+    return Response(
+        status_code=204
+    )
 

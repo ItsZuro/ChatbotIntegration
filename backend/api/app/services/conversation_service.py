@@ -214,3 +214,65 @@ def update_conversation_context(
         },
     )
 
+def delete_conversation(
+    conversation_id: str,
+) -> bool:
+    conversation = get_conversation(
+        conversation_id=conversation_id
+    )
+
+    if not conversation:
+        return False
+
+    partition_key = (
+        f"CONV#{conversation_id}"
+    )
+
+    last_evaluated_key = None
+
+    with conversations_table.batch_writer() as batch:
+        while True:
+            query_params = {
+                "KeyConditionExpression": (
+                    Key("pk").eq(
+                        partition_key
+                    )
+                ),
+                "ProjectionExpression": (
+                    "pk, sk"
+                ),
+            }
+
+            if last_evaluated_key:
+                query_params[
+                    "ExclusiveStartKey"
+                ] = last_evaluated_key
+
+            response = (
+                conversations_table.query(
+                    **query_params
+                )
+            )
+
+            for item in response.get(
+                "Items",
+                [],
+            ):
+                batch.delete_item(
+                    Key={
+                        "pk": item["pk"],
+                        "sk": item["sk"],
+                    }
+                )
+
+            last_evaluated_key = (
+                response.get(
+                    "LastEvaluatedKey"
+                )
+            )
+
+            if not last_evaluated_key:
+                break
+
+    return True
+
