@@ -49,6 +49,7 @@ Resources:
           JIRA_FUNCTION_NAME: !Ref UtpAssistantJiraFunction
           GOOGLE_FUNCTION_NAME: !Ref UtpAssistantGoogleFunction
           AUDIT_TABLE_NAME: !Ref UtpAssistantAuditTable
+          DOCUMENTS_FUNCTION_NAME: !Ref UtpAssistantDocumentsFunction
 
       Policies:
         - Statement:
@@ -85,6 +86,13 @@ Resources:
               Action:
                 - dynamodb:PutItem
               Resource: !GetAtt UtpAssistantAuditTable.Arn
+
+        - Statement:
+            - Sid: InvokeDocumentsFunction
+              Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt UtpAssistantDocumentsFunction.Arn
 
       Events:
         AssistantMessage:

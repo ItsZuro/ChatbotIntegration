@@ -13,6 +13,7 @@ from tool_executor import execute_tool
 
 secrets_client = boto3.client("secretsmanager")
 dynamodb = boto3.resource("dynamodb")
+lambda_client = boto3.client("lambda")
 
 MAX_TOOL_ROUNDS = 5
 
@@ -74,6 +75,34 @@ def write_audit_record(
             f"{type(audit_error).__name__}"
         )
 
+def get_document_text(object_key: str) -> str:
+    response = lambda_client.invoke(
+        FunctionName=os.environ["DOCUMENTS_FUNCTION_NAME"],
+        InvocationType="RequestResponse",
+        Payload=json.dumps({
+            "action": "extract_text",
+            "object_key": object_key
+        }).encode("utf-8")
+    )
+
+    payload = json.loads(
+        response["Payload"].read().decode("utf-8")
+    )
+
+    if "FunctionError" in response:
+        raise RuntimeError(
+            "La función de documentos produjo un error interno."
+        )
+
+    if not payload.get("success"):
+        raise RuntimeError(
+            payload.get(
+                "error",
+                "No se pudo procesar el documento."
+            )
+        )
+
+    return payload["text"]
 
 def lambda_handler(event, context):
     request_id = context.aws_request_id
@@ -83,6 +112,7 @@ def lambda_handler(event, context):
         body = json.loads(event.get("body") or "{}")
 
         message = body.get("message")
+        object_key = body.get("object_key")
 
         if not message:
             write_audit_record(
@@ -107,11 +137,24 @@ def lambda_handler(event, context):
                 )
             }
 
+        effective_message = message
+
+        if object_key:
+            document_text = get_document_text(
+                object_key=object_key
+            )
+
+            effective_message = (
+                f"{message}\n\n"
+                "DOCUMENTO ADJUNTO:\n"
+                f"{document_text}"
+            )
+
         api_key = get_openai_api_key()
 
         assistant_result = process_message(
             api_key=api_key,
-            user_message=message
+            user_message=effective_message
         )
 
         executed_tools = []
