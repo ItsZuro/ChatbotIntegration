@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Infraestructura serverless inicial de UTP Assistant.
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Timeout: 30
+    MemorySize: 256
+    Architectures:
+      - x86_64
+
+Resources:
+
+  UtpAssistantHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+
+  UtpAssistantOrchestrator:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: utp-assistant-orchestrator
+      CodeUri: ../backend/orchestrator/
+      Handler: app.lambda_handler
+
+      Environment:
+        Variables:
+          OPENAI_SECRET_ID: utp-assistant/openai
+
+      Policies:
+        - Statement:
+            - Sid: ReadOpenAISecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/openai-*"
+
+      Events:
+        AssistantMessage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UtpAssistantHttpApi
+            Path: /assistant/message
+            Method: POST
+
+Outputs:
+
+  ApiUrl:
+    Description: URL del endpoint principal de UTP Assistant
+    Value: !Sub "https://${UtpAssistantHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/assistant/message"
+
+  OrchestratorFunctionArn:
+    Description: ARN de la Lambda Orchestrator
+    Value: !GetAtt UtpAssistantOrchestrator.Arn
