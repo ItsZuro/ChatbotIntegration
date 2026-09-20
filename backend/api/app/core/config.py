@@ -6,6 +6,7 @@ from pydantic_settings import (
 )
 
 
+
 class Settings(BaseSettings):
     app_name: str = "UTP Assistant API"
     app_version: str = "0.1.0"
@@ -22,6 +23,8 @@ class Settings(BaseSettings):
     jira_function_name: str = "utp-assistant-jira"
     google_function_name: str = "utp-assistant-google"
     documents_function_name: str = "utp-assistant-documents"
+
+    audit_table_name: str = "utp-assistant-audit"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -9,6 +9,8 @@ class AssistantMessageRequest(BaseModel):
         max_length=20_000,
     )
 
+    object_key: str | None = None
+
 
 class ExecutedTool(BaseModel):
     name: str
