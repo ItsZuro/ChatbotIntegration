@@ -182,10 +182,11 @@ Resources:
 
       Policies:
         - Statement:
-            - Sid: UploadDocumentsToBucket
+            - Sid: ReadWriteDocuments
               Effect: Allow
               Action:
                 - s3:PutObject
+                - s3:GetObject
               Resource: !Sub "${UtpAssistantDocumentsBucket.Arn}/*"
 
 Outputs:
