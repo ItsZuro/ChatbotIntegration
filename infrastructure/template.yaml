@@ -18,6 +18,16 @@ Resources:
     Properties:
       StageName: '$default'
 
+      CorsConfiguration:
+        AllowOrigins:
+          - http://localhost:5173
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - POST
+          - OPTIONS
+        MaxAge: 600
+
   UtpAssistantAuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -177,6 +187,18 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+            AllowedOrigins:
+              - http://localhost:5173
+            ExposedHeaders:
+              - ETag
+            MaxAge: 3600
+
   UtpAssistantDocumentsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -196,6 +218,14 @@ Resources:
                 - s3:PutObject
                 - s3:GetObject
               Resource: !Sub "${UtpAssistantDocumentsBucket.Arn}/*"
+
+      Events:
+        GenerateUploadUrl:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref UtpAssistantHttpApi
+            Path: /documents/upload-url
+            Method: POST
 
 Outputs:
 

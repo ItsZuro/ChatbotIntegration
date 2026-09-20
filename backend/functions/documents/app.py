@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 
 import boto3
+import json
 from docx import Document
 from pypdf import PdfReader
 
@@ -213,23 +214,81 @@ def extract_document_text(event: dict) -> dict:
         "text": text
     }
 
+def http_response(
+    status_code: int,
+    body: dict
+) -> dict:
+    return {
+        "statusCode": status_code,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": json.dumps(
+            body,
+            ensure_ascii=False
+        )
+    }
 
 def lambda_handler(event, context):
     try:
+        is_http_request = (
+            isinstance(event, dict)
+            and "requestContext" in event
+            and "http" in event.get(
+                "requestContext",
+                {}
+            )
+        )
+
+        if is_http_request:
+            try:
+                body = json.loads(
+                    event.get("body") or "{}"
+                )
+            except json.JSONDecodeError:
+                return http_response(
+                    400,
+                    {
+                        "success": False,
+                        "error": "JSON inválido"
+                    }
+                )
+
+            result = generate_upload_url(
+                body
+            )
+
+            status_code = (
+                200
+                if result.get("success")
+                else 400
+            )
+
+            return http_response(
+                status_code,
+                result
+            )
+
         action = event.get(
             "action",
             "generate_upload_url"
         )
 
         if action == "generate_upload_url":
-            return generate_upload_url(event)
+            return generate_upload_url(
+                event
+            )
 
         if action == "extract_text":
-            return extract_document_text(event)
+            return extract_document_text(
+                event
+            )
 
         return {
             "success": False,
-            "error": f"Acción no soportada: {action}"
+            "error": (
+                f"Acción no soportada: {action}"
+            )
         }
 
     except Exception as error:
@@ -238,11 +297,27 @@ def lambda_handler(event, context):
             f"{type(error).__name__}"
         )
 
-        return {
+        is_http_request = (
+            isinstance(event, dict)
+            and "requestContext" in event
+        )
+
+        error_body = {
             "success": False,
             "error": (
-                "No se pudo completar la operación "
-                "del documento"
+                "No se pudo completar la "
+                "operación del documento"
             ),
-            "error_type": type(error).__name__
+            "error_type": (
+                type(error).__name__
+            )
         }
+
+        if is_http_request:
+            return http_response(
+                500,
+                error_body
+            )
+
+        return error_body
+
