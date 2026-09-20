@@ -18,6 +18,23 @@ Resources:
     Properties:
       StageName: '$default'
 
+  UtpAssistantAuditTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: utp-assistant-audit
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: request_id
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: request_id
+          KeyType: HASH
+
+      SSESpecification:
+        SSEEnabled: true
+
   UtpAssistantOrchestrator:
     Type: AWS::Serverless::Function
     Properties:
@@ -31,6 +48,7 @@ Resources:
           HUBSPOT_FUNCTION_NAME: !Ref UtpAssistantHubSpotFunction
           JIRA_FUNCTION_NAME: !Ref UtpAssistantJiraFunction
           GOOGLE_FUNCTION_NAME: !Ref UtpAssistantGoogleFunction
+          AUDIT_TABLE_NAME: !Ref UtpAssistantAuditTable
 
       Policies:
         - Statement:
@@ -60,6 +78,13 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !GetAtt UtpAssistantGoogleFunction.Arn
+              
+        - Statement:
+            - Sid: WriteAuditRecords
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt UtpAssistantAuditTable.Arn
 
       Events:
         AssistantMessage:
