@@ -1,5 +1,5 @@
 import json
-
+import os
 from openai import OpenAI
 
 from system_prompt import SYSTEM_PROMPT
@@ -8,15 +8,24 @@ from tool_schemas import TOOLS
 
 MODEL = "gpt-5.6-terra"
 
+OPENAI_MODEL = os.environ.get(
+    "OPENAI_MODEL",
+    "gpt-5.6-luna"
+)
+
+OPENAI_REASONING_EFFORT = os.environ.get(
+    "OPENAI_REASONING_EFFORT",
+    "low"
+)
 
 def process_message(api_key: str, user_message: str) -> dict:
     
     client = OpenAI(api_key=api_key)
 
     response = client.responses.create(
-        model=MODEL,
+        model=OPENAI_MODEL,
         reasoning={
-            "effort": "low"
+            "effort": OPENAI_REASONING_EFFORT
         },
         instructions=SYSTEM_PROMPT,
         tools=TOOLS,
@@ -67,9 +76,9 @@ def continue_after_tool_calls(
         })
 
     response = client.responses.create(
-        model=MODEL,
+        model=OPENAI_MODEL,
         reasoning={
-            "effort": "low"
+            "effort": OPENAI_REASONING_EFFORT
         },
         instructions=SYSTEM_PROMPT,
         tools=TOOLS,
