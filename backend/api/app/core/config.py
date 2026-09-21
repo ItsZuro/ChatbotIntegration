@@ -14,6 +14,10 @@ class Settings(BaseSettings):
 
     openai_model: str = "gpt-5.6-luna"
     openai_reasoning_effort: str = "low"
+    openai_transcription_model: str = "gpt-transcribe"
+    openai_realtime_transcription_model: str = (
+        "gpt-live-transcribe"
+    )
 
     aws_region: str = "us-east-1"
 
@@ -26,6 +30,7 @@ class Settings(BaseSettings):
 
     audit_table_name: str = "utp-assistant-audit"
     conversations_table_name: str = "utp-assistant-conversations"
+    
 
     model_config = SettingsConfigDict(
         env_file=".env",

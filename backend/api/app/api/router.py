@@ -12,7 +12,9 @@ from app.api.routes.documents import (
 from app.api.routes.conversations import (
     router as conversations_router,
 )
-
+from app.api.routes.audio import (
+    router as audio_router,
+)
 
 api_router = APIRouter()
 
@@ -20,3 +22,6 @@ api_router.include_router(health_router)
 api_router.include_router(assistant_router)
 api_router.include_router(documents_router)
 api_router.include_router(conversations_router)
+api_router.include_router(
+    audio_router
+)

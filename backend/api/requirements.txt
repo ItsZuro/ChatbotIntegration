@@ -4,3 +4,5 @@ pydantic-settings
 openai==3.16.2
 boto3
 botocore[crt]
+python-multipart
+httpx
