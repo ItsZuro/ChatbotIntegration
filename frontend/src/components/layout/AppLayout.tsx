@@ -13,14 +13,12 @@ import {
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Tooltip,
 } from "@mantine/core";
 
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
-  Bot,
   FileText,
   History,
   LayoutDashboard,
@@ -49,6 +47,8 @@ import {
 } from "../../features/chat/hooks/useConversations";
 
 import { logoutUser } from "../../services/auth.service";
+
+import { AssistantMark } from "../brand/AssistantMark";
 
 const operationsNavigation = [
   {
@@ -330,7 +330,15 @@ export function AppLayout() {
         transitionDuration={180}
         transitionTimingFunction="ease"
       >
-        <AppShell.Header>
+        <AppShell.Header
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(18, 14, 31, 0.96), rgba(11, 16, 32, 0.96))",
+            borderBottom: "1px solid rgba(139, 92, 246, 0.20)",
+            backdropFilter: "blur(18px)",
+            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.20)",
+          }}
+        >
           <Group h="100%" px="md" justify="space-between">
             <Group gap="sm">
               <Tooltip label={collapsed ? "Expandir menú" : "Contraer menú"}>
@@ -355,17 +363,7 @@ export function AppLayout() {
                 size="sm"
               />
 
-              <ThemeIcon
-                size={34}
-                radius="md"
-                variant="gradient"
-                gradient={{
-                  from: "violet",
-                  to: "indigo",
-                }}
-              >
-                <Bot size={19} />
-              </ThemeIcon>
+              <AssistantMark size={38} />
 
               <Box>
                 <Text fw={700} size="sm">
@@ -413,6 +411,10 @@ export function AppLayout() {
           p="sm"
           style={{
             transition: "width 180ms ease",
+            background:
+              "linear-gradient(180deg, rgba(20, 15, 35, 0.98) 0%, rgba(10, 15, 30, 0.98) 100%)",
+            borderRight: "1px solid rgba(139, 92, 246, 0.18)",
+            boxShadow: "10px 0 35px rgba(0, 0, 0, 0.16)",
           }}
         >
           {/* Nuevo chat + buscador */}
@@ -625,14 +627,18 @@ export function AppLayout() {
           </AppShell.Section>
         </AppShell.Navbar>
 
-        <AppShell.Main>
+        <AppShell.Main
+          style={{
+            minHeight: "100vh",
+            background:
+              "radial-gradient(circle at 12% 12%, rgba(124, 58, 237, 0.15), transparent 30%), " +
+              "radial-gradient(circle at 88% 70%, rgba(37, 99, 235, 0.12), transparent 32%), " +
+              "linear-gradient(135deg, #0d0b16 0%, #11101d 46%, #0b1020 100%)",
+          }}
+        >
           <Outlet />
         </AppShell.Main>
       </AppShell>
     </>
   );
 }
-
-
-
-

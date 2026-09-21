@@ -76,9 +76,17 @@ export function OperationsFlowCard() {
   return (
     <Paper
       withBorder
-      radius="lg"
+      radius="xl"
       p="xl"
       h="100%"
+      style={{
+        background:
+          "linear-gradient(145deg, rgba(32, 28, 51, 0.95), rgba(16, 22, 42, 0.94))",
+        border:
+          "1px solid rgba(124, 58, 237, 0.20)",
+        boxShadow:
+          "0 18px 48px rgba(0, 0, 0, 0.20)",
+      }}
     >
       <Group
         justify="space-between"
@@ -185,6 +193,12 @@ export function OperationsFlowCard() {
               radius="md"
               p="md"
               pos="relative"
+              style={{
+                background:
+                  "rgba(255, 255, 255, 0.028)",
+                border:
+                  "1px solid rgba(255, 255, 255, 0.08)",
+              }}
             >
               <Group
                 justify="space-between"

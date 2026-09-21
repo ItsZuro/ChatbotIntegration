@@ -72,7 +72,20 @@ interface UsageCardProps {
 
 export function UsageCard({ loading = false, usage }: UsageCardProps) {
   return (
-    <Paper withBorder radius="lg" p="lg" h="100%">
+    <Paper
+      withBorder
+      radius="xl"
+      p="lg"
+      h="100%"
+      style={{
+        background:
+          "linear-gradient(145deg, rgba(33, 28, 52, 0.95), rgba(15, 22, 41, 0.94))",
+        border:
+          "1px solid rgba(99, 102, 241, 0.20)",
+        boxShadow:
+          "0 18px 48px rgba(0, 0, 0, 0.20)",
+      }}
+    >
       <Group justify="space-between" mb="lg">
         <div>
           <Title order={4}>Uso diario</Title>

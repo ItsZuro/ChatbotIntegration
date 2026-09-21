@@ -51,9 +51,17 @@ export function MetricCard({
     >
       <Card
         withBorder
-        radius="lg"
+        radius="xl"
         p="lg"
         h="100%"
+        style={{
+          background:
+            "linear-gradient(145deg, rgba(35, 29, 55, 0.95), rgba(18, 23, 43, 0.92))",
+          border:
+            "1px solid rgba(139, 92, 246, 0.18)",
+          boxShadow:
+            "0 16px 42px rgba(0, 0, 0, 0.20)",
+        }}
       >
         <Group
           justify="space-between"

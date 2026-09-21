@@ -92,7 +92,19 @@ function DocumentCard({
   onDelete,
 }: DocumentCardProps) {
   return (
-    <Paper withBorder radius="lg" p="lg">
+    <Paper
+      withBorder
+      radius="xl"
+      p="lg"
+      style={{
+        background:
+          "linear-gradient(145deg, rgba(32, 28, 51, 0.95), rgba(15, 22, 41, 0.94))",
+        border:
+          "1px solid rgba(124, 58, 237, 0.18)",
+        boxShadow:
+          "0 14px 38px rgba(0, 0, 0, 0.18)",
+      }}
+    >
       <Group justify="space-between" align="center" wrap="nowrap">
         <Group
           wrap="nowrap"
@@ -275,11 +287,17 @@ export function DocumentsPage() {
   };
 
   return (
-    <Box maw={1200} mx="auto">
+    <Box maw={1200} mx="auto" py="xs">
       <Group justify="space-between" align="flex-start" mb="xl">
         <Box>
           <Group gap="sm">
-            <Title order={2}>Documentos</Title>
+            <Title
+              order={2}
+              fw={800}
+              c="violet.1"
+            >
+              Documentos
+            </Title>
 
             <Badge color="violet" variant="light">
               {documents.length} archivos
@@ -304,7 +322,22 @@ export function DocumentsPage() {
         </Tooltip>
       </Group>
 
-      <Paper withBorder radius="lg" p="md" mb="lg">
+      <Paper
+        withBorder
+        radius="xl"
+        p="md"
+        mb="lg"
+        style={{
+          background:
+            "rgba(30, 26, 48, 0.86)",
+          border:
+            "1px solid rgba(139, 92, 246, 0.18)",
+          boxShadow:
+            "0 14px 38px rgba(0, 0, 0, 0.14)",
+          backdropFilter:
+            "blur(14px)",
+        }}
+      >
         <TextInput
           placeholder="Buscar documento..."
           value={search}

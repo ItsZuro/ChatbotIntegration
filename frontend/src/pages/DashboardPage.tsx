@@ -22,7 +22,7 @@ export function DashboardPage() {
   const { data: usageData, isLoading: isUsageLoading } = useMyUsage();
 
   return (
-    <Box maw={1500} mx="auto">
+    <Box maw={1500} mx="auto" py="xs">
       <DashboardHeader />
 
       {isError && (

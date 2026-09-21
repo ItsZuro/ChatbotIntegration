@@ -145,9 +145,17 @@ export function RecentActivityCard({
   return (
     <Paper
       withBorder
-      radius="lg"
+      radius="xl"
       p="xl"
       h="100%"
+      style={{
+        background:
+          "linear-gradient(145deg, rgba(31, 27, 49, 0.95), rgba(14, 21, 39, 0.94))",
+        border:
+          "1px solid rgba(59, 130, 246, 0.16)",
+        boxShadow:
+          "0 18px 48px rgba(0, 0, 0, 0.18)",
+      }}
     >
       <Group
         justify="space-between"
