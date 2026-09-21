@@ -1,0 +1,139 @@
+name: Deploy Backend to ECS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/api/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "431223004152"
+  ECR_REPOSITORY: utp-assistant-api
+  ECS_CLUSTER: utp-assistant
+  ECS_SERVICE: utp-assistant-api
+  ECS_TASK_FAMILY: utp-assistant-api
+  CONTAINER_NAME: utp-assistant-api
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::431223004152:role/utp-assistant-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" |
+          docker login \
+            --username AWS \
+            --password-stdin \
+            "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Build and push Docker image
+        id: build-image
+        run: |
+          IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$GITHUB_SHA"
+
+          echo "Building image:"
+          echo "$IMAGE_URI"
+
+          docker build \
+            -t "$IMAGE_URI" \
+            backend/api
+
+          docker push "$IMAGE_URI"
+
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Download current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Create new ECS task definition
+        env:
+          IMAGE_URI: ${{ steps.build-image.outputs.image_uri }}
+        run: |
+          jq \
+            --arg IMAGE "$IMAGE_URI" \
+            --arg CONTAINER "$CONTAINER_NAME" \
+            '
+            .containerDefinitions |= map(
+              if .name == $CONTAINER
+              then .image = $IMAGE
+              else .
+              end
+            )
+            |
+            del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy
+            )
+            ' \
+            task-definition.json \
+            > task-definition-new.json
+
+      - name: Register new ECS task definition
+        id: register-task
+        run: |
+          TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://task-definition-new.json \
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text)
+
+          echo "task_definition_arn=$TASK_DEFINITION_ARN" >> "$GITHUB_OUTPUT"
+
+          echo "Registered:"
+          echo "$TASK_DEFINITION_ARN"
+
+      - name: Deploy new task definition to ECS
+        env:
+          TASK_DEFINITION_ARN: ${{ steps.register-task.outputs.task_definition_arn }}
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TASK_DEFINITION_ARN"
+
+      - name: Wait for ECS service stability
+        run: |
+          echo "Waiting for ECS deployment..."
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
+
+      - name: Deployment summary
+        env:
+          IMAGE_URI: ${{ steps.build-image.outputs.image_uri }}
+          TASK_DEFINITION_ARN: ${{ steps.register-task.outputs.task_definition_arn }}
+        run: |
+          echo "============================================"
+          echo "Deployment completed successfully"
+          echo "============================================"
+          echo "Image: $IMAGE_URI"
+          echo "Task Definition: $TASK_DEFINITION_ARN"
+          echo "Cluster: $ECS_CLUSTER"
+          echo "Service: $ECS_SERVICE"
