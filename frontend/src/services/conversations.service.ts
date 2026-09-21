@@ -1,8 +1,10 @@
 import { api } from './api';
 
 import type {
+  CancelPendingActionResponse,
   Conversation,
   ConversationMessage,
+  PendingActionResponse,
   SendConversationMessageResponse,
 } from '../types/api.types';
 
@@ -99,6 +101,49 @@ export async function renameConversation({
       `/conversations/${conversationId}`,
       {
         title,
+      }
+    );
+
+  return data;
+}
+
+export async function getPendingConversationAction(
+  conversationId: string
+): Promise<PendingActionResponse | null> {
+  const { data } =
+    await api.get<PendingActionResponse | null>(
+      `/conversations/${conversationId}/actions/pending`
+    );
+
+  return data;
+}
+
+
+export async function confirmConversationAction(
+  conversationId: string,
+  actionId: string
+): Promise<SendConversationMessageResponse> {
+  const { data } =
+    await api.post<SendConversationMessageResponse>(
+      `/conversations/${conversationId}/actions/confirm`,
+      {
+        action_id: actionId,
+      }
+    );
+
+  return data;
+}
+
+
+export async function cancelConversationAction(
+  conversationId: string,
+  actionId: string
+): Promise<CancelPendingActionResponse> {
+  const { data } =
+    await api.post<CancelPendingActionResponse>(
+      `/conversations/${conversationId}/actions/cancel`,
+      {
+        action_id: actionId,
       }
     );
 

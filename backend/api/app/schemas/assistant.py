@@ -1,6 +1,9 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
 
 class AssistantMessageRequest(BaseModel):
@@ -17,9 +20,30 @@ class ExecutedTool(BaseModel):
     result: dict[str, Any]
 
 
+class PendingToolCall(BaseModel):
+    call_id: str
+    name: str
+    arguments: dict[str, Any]
+
+
 class AssistantMessageResponse(BaseModel):
     request_id: str
+
     type: str
+
     response_id: str
     response: str
-    executed_tools: list[ExecutedTool]
+
+    executed_tools: list[
+        ExecutedTool
+    ] = Field(
+        default_factory=list
+    )
+
+    action_id: str | None = None
+
+    pending_calls: list[
+        PendingToolCall
+    ] = Field(
+        default_factory=list
+    )

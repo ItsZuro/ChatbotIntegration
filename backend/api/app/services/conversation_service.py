@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-
+import json
 import boto3
 from boto3.dynamodb.conditions import Key
 
@@ -212,6 +212,110 @@ def update_conversation_context(
                 f"{now}#CONV#{conversation_id}"
             ),
         },
+    )
+
+def save_pending_action(
+    conversation_id: str,
+    response_id: str,
+    function_calls: list[dict],
+) -> dict:
+    action_id = str(uuid4())
+
+    now = datetime.now(
+        timezone.utc
+    ).isoformat()
+
+    conversations_table.update_item(
+        Key={
+            "pk": (
+                f"CONV#{conversation_id}"
+            ),
+            "sk": "METADATA",
+        },
+        UpdateExpression=(
+            "SET "
+            "pending_action_id = :action_id, "
+            "pending_response_id = :response_id, "
+            "pending_calls = :calls, "
+            "pending_created_at = :created_at"
+        ),
+        ExpressionAttributeValues={
+            ":action_id": action_id,
+            ":response_id": response_id,
+            ":calls": json.dumps(
+                function_calls,
+                ensure_ascii=False,
+            ),
+            ":created_at": now,
+        },
+    )
+
+    return {
+        "action_id": action_id,
+        "response_id": response_id,
+        "function_calls": function_calls,
+        "created_at": now,
+    }
+
+
+def get_pending_action(
+    conversation_id: str,
+) -> dict | None:
+    conversation = get_conversation(
+        conversation_id=conversation_id
+    )
+
+    if not conversation:
+        return None
+
+    action_id = conversation.get(
+        "pending_action_id"
+    )
+
+    response_id = conversation.get(
+        "pending_response_id"
+    )
+
+    calls_json = conversation.get(
+        "pending_calls"
+    )
+
+    if (
+        not action_id
+        or not response_id
+        or not calls_json
+    ):
+        return None
+
+    return {
+        "action_id": action_id,
+        "response_id": response_id,
+        "function_calls": json.loads(
+            calls_json
+        ),
+        "created_at": conversation.get(
+            "pending_created_at"
+        ),
+    }
+
+
+def clear_pending_action(
+    conversation_id: str,
+) -> None:
+    conversations_table.update_item(
+        Key={
+            "pk": (
+                f"CONV#{conversation_id}"
+            ),
+            "sk": "METADATA",
+        },
+        UpdateExpression=(
+            "REMOVE "
+            "pending_action_id, "
+            "pending_response_id, "
+            "pending_calls, "
+            "pending_created_at"
+        ),
     )
 
 def rename_conversation(

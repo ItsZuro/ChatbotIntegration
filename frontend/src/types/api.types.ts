@@ -1,6 +1,6 @@
 export interface UploadUrlResponse {
   success: boolean;
-  action: 'upload_url_generated';
+  action: "upload_url_generated";
   bucket: string;
   object_key: string;
   upload_url: string;
@@ -18,9 +18,27 @@ export interface ExecutedTool {
   result: ToolResult;
 }
 
+export interface PendingToolCall {
+  call_id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface PendingActionResponse {
+  action_id: string;
+  response_id: string;
+  pending_calls: PendingToolCall[];
+}
+
+export interface CancelPendingActionResponse {
+  success: boolean;
+  action: "cancelled";
+  conversation_id: string;
+}
+
 export interface AssistantResponse {
   request_id: string;
-  type: 'message';
+  type: "message";
   response_id: string;
   response: string;
   executed_tools: ExecutedTool[];
@@ -37,7 +55,7 @@ export interface Conversation {
 export interface ConversationMessage {
   message_id: string;
   conversation_id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   created_at: string;
   response_id: string | null;
@@ -47,9 +65,17 @@ export interface ConversationMessage {
 export interface SendConversationMessageResponse {
   request_id: string;
   conversation_id: string;
+
+  type: "message" | "confirmation_required";
+
   response_id: string;
   response: string;
+
   executed_tools: ExecutedTool[];
+
+  action_id: string | null;
+
+  pending_calls: PendingToolCall[];
 }
 
 export interface TranscriptionResponse {
@@ -62,7 +88,6 @@ export interface RealtimeTranscriptionSessionResponse {
   expires_at: number;
   model: string;
 }
-
 
 export interface DashboardMetrics {
   total_requests: number;
@@ -77,7 +102,7 @@ export interface DashboardActivityItem {
   title: string;
   description: string;
   integration: string;
-  status: 'SUCCESS' | 'ERROR';
+  status: "SUCCESS" | "ERROR";
   timestamp: string;
 }
 
@@ -100,7 +125,7 @@ export interface DocumentListResponse {
 
 export interface DownloadUrlResponse {
   success: boolean;
-  action: 'download_url_generated';
+  action: "download_url_generated";
   object_key: string;
   download_url: string;
   expires_in: number;
@@ -108,7 +133,7 @@ export interface DownloadUrlResponse {
 
 export interface DeleteDocumentResponse {
   success: boolean;
-  action: 'document_deleted';
+  action: "document_deleted";
   object_key: string;
   deleted_versions: number;
 }

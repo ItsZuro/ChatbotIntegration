@@ -7,7 +7,9 @@ import {
 } from "@mantine/core";
 
 import {
+  Building2,
   CalendarDays,
+  Handshake,
   TicketCheck,
   Users,
   Wrench,
@@ -40,6 +42,18 @@ function getToolMeta(
         icon: Users,
       };
 
+    case "registrar_empresa_en_hubspot":
+      return {
+        label: "HubSpot",
+        icon: Building2,
+      };
+
+    case "crear_oportunidad_en_hubspot":
+      return {
+        label: "HubSpot",
+        icon: Handshake,
+      };
+
     case "crear_ticket_en_jira":
       return {
         label: "Jira",
@@ -54,10 +68,74 @@ function getToolMeta(
 
     default:
       return {
-        label: tool.name,
+        label: "Integración",
         icon: Wrench,
       };
   }
+}
+
+
+function getToolUrl(
+  tool: ExecutedTool
+): string | null {
+  if (
+    tool.name ===
+    "crear_ticket_en_jira"
+  ) {
+    const issueUrl =
+      tool.result.issue_url;
+
+    if (
+      typeof issueUrl === "string" &&
+      issueUrl.length > 0
+    ) {
+      return issueUrl;
+    }
+  }
+
+  if (
+    tool.name ===
+    "agendar_reunion_en_google_calendar"
+  ) {
+    const eventUrl =
+      tool.result.event_url;
+
+    if (
+      typeof eventUrl === "string" &&
+      eventUrl.length > 0
+    ) {
+      return eventUrl;
+    }
+  }
+
+  return null;
+}
+
+
+function getTooltipLabel(
+  tool: ExecutedTool,
+  url: string | null
+) {
+  if (!tool.result.success) {
+    return "La acción produjo un error";
+  }
+
+  if (
+    url &&
+    tool.name === "crear_ticket_en_jira"
+  ) {
+    return "Abrir ticket en Jira";
+  }
+
+  if (
+    url &&
+    tool.name ===
+      "agendar_reunion_en_google_calendar"
+  ) {
+    return "Abrir evento en Google Calendar";
+  }
+
+  return "Acción realizada correctamente";
 }
 
 
@@ -104,30 +182,55 @@ export function RequestResult({
               const Icon =
                 meta.icon;
 
+              const url =
+                getToolUrl(tool);
+
+              const badge = (
+                <Badge
+                  variant="light"
+                  color={
+                    tool.result.success
+                      ? "teal"
+                      : "red"
+                  }
+                  leftSection={
+                    <Icon
+                      size={13}
+                    />
+                  }
+                  style={
+                    url
+                      ? {
+                          cursor: "pointer",
+                        }
+                      : undefined
+                  }
+                >
+                  {meta.label}
+                  {url ? " ↗" : ""}
+                </Badge>
+              );
+
               return (
                 <Tooltip
                   key={`${tool.name}-${index}`}
-                  label={
-                    tool.result.success
-                      ? "Acción realizada correctamente"
-                      : "La acción produjo un error"
-                  }
+                  label={getTooltipLabel(
+                    tool,
+                    url
+                  )}
                 >
-                  <Badge
-                    variant="light"
-                    color={
-                      tool.result.success
-                        ? "teal"
-                        : "red"
-                    }
-                    leftSection={
-                      <Icon
-                        size={13}
-                      />
-                    }
-                  >
-                    {meta.label}
-                  </Badge>
+                  {url ? (
+                    <Anchor
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      underline="never"
+                    >
+                      {badge}
+                    </Anchor>
+                  ) : (
+                    badge
+                  )}
                 </Tooltip>
               );
             }

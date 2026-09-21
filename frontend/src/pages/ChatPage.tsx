@@ -35,8 +35,11 @@ import type { RequestStage } from "../features/requests/hooks/useSubmitRequest";
 import type { SelectedDocument } from "../features/requests/types/request.types";
 
 import {
+  useCancelConversationAction,
+  useConfirmConversationAction,
   useConversationMessages,
   useCreateConversation,
+  usePendingConversationAction,
   useSendConversationMessage,
 } from "../features/chat/hooks/useConversations";
 
@@ -51,6 +54,7 @@ import { deleteConversation } from "../services/conversations.service";
 import type { SendConversationMessageResponse } from "../types/api.types";
 
 import { isRateLimitError } from "../services/api";
+import { PendingActionCard } from "../features/chat/components/PendingActionCard";
 
 function buildConversationTitle(message: string) {
   const normalized = message.replace(/\s+/g, " ").trim();
@@ -98,30 +102,56 @@ export function ChatPage() {
     error: messagesError,
   } = useConversationMessages(conversationId);
 
+  const {
+  data: pendingAction = null,
+} = usePendingConversationAction(
+  conversationId
+);
+
   const { mutateAsync: createConversation, isPending: creatingConversation } =
     useCreateConversation();
 
   const { mutateAsync: sendConversationMessage, isPending: sendingMessage } =
     useSendConversationMessage();
 
+    const {
+  mutateAsync: confirmConversationAction,
+  isPending: confirmingAction,
+} = useConfirmConversationAction();
+
+const {
+  mutateAsync: cancelConversationAction,
+  isPending: cancellingAction,
+} = useCancelConversationAction();
+
   const loading =
     creatingConversation ||
     sendingMessage ||
     (stage !== "idle" && stage !== "success");
 
-  const hasConversation = Boolean(
-    conversationId ||
-    persistedMessages.length > 0 ||
-    pendingUserMessage ||
-    loading,
-  );
+    const interactionLocked =
+  loading ||
+  confirmingAction ||
+  cancellingAction ||
+  Boolean(pendingAction);
+
+const hasConversation = Boolean(
+  conversationId ||
+  persistedMessages.length > 0 ||
+  pendingUserMessage ||
+  pendingAction ||
+  loading,
+);
 
   const handleSubmit = async (messageOverride?: string) => {
     const cleanMessage = (messageOverride ?? message).trim();
 
-    if (!cleanMessage || loading) {
-      return;
-    }
+    if (
+  !cleanMessage ||
+  interactionLocked
+) {
+  return;
+}
 
     let targetConversationId = conversationId;
 
@@ -212,6 +242,109 @@ export function ChatPage() {
       }
     }
   };
+
+  const handleConfirmAction = async () => {
+  if (
+    !conversationId ||
+    !pendingAction ||
+    confirmingAction ||
+    cancellingAction
+  ) {
+    return;
+  }
+
+  try {
+    const result =
+      await confirmConversationAction({
+        conversationId,
+        actionId:
+          pendingAction.action_id,
+      });
+
+    setLastExecution(
+      result
+    );
+
+    notifications.show({
+      title: (
+        result.type ===
+        "confirmation_required"
+          ? "Acción ejecutada"
+          : "Operación completada"
+      ),
+      message: (
+        result.type ===
+        "confirmation_required"
+          ? (
+              "La acción fue ejecutada. "
+              + "Hay otra acción que "
+              + "requiere tu autorización."
+            )
+          : (
+              "La acción autorizada "
+              + "se ejecutó correctamente."
+            )
+      ),
+      color: "teal",
+    });
+  } catch {
+    notifications.show({
+      title: (
+        "No se pudo ejecutar "
+        + "la acción"
+      ),
+      message: (
+        "La operación no fue "
+        + "completada."
+      ),
+      color: "red",
+    });
+  }
+};
+
+
+const handleCancelAction = async () => {
+  if (
+    !conversationId ||
+    !pendingAction ||
+    confirmingAction ||
+    cancellingAction
+  ) {
+    return;
+  }
+
+  try {
+    await cancelConversationAction({
+      conversationId,
+      actionId:
+        pendingAction.action_id,
+    });
+
+    setLastExecution(
+      null
+    );
+
+    notifications.show({
+      title: "Acción cancelada",
+      message: (
+        "No se realizó ningún "
+        + "cambio externo."
+      ),
+      color: "gray",
+    });
+  } catch {
+    notifications.show({
+      title: (
+        "No se pudo cancelar "
+        + "la acción"
+      ),
+      message: (
+        "Inténtalo nuevamente."
+      ),
+      color: "red",
+    });
+  }
+};
 
   const {
     error: voiceError,
@@ -332,7 +465,7 @@ export function ChatPage() {
             <EmptyChatState
               message={message}
               document={document}
-              loading={loading}
+              loading={interactionLocked}
               onMessageChange={setMessage}
               onDocumentChange={setDocument}
               onSubmit={handleSubmit}
@@ -439,6 +572,46 @@ export function ChatPage() {
                   </Group>
                 )}
 
+                {pendingAction && (
+  <Group
+    align="flex-start"
+    wrap="nowrap"
+  >
+    <ThemeIcon
+      size={30}
+      radius="xl"
+      color="violet"
+      variant="light"
+      mt={4}
+    >
+      <Bot size={16} />
+    </ThemeIcon>
+
+    <Box
+      style={{
+        flex: 1,
+        minWidth: 0,
+      }}
+    >
+      <PendingActionCard
+        action={pendingAction}
+        confirming={
+          confirmingAction
+        }
+        cancelling={
+          cancellingAction
+        }
+        onConfirm={
+          handleConfirmAction
+        }
+        onCancel={
+          handleCancelAction
+        }
+      />
+    </Box>
+  </Group>
+)}
+
                 {loading && (
                   <Group align="flex-start" wrap="nowrap">
                     <ThemeIcon
@@ -470,7 +643,7 @@ export function ChatPage() {
               <ChatComposer
                 message={message}
                 document={document}
-                loading={loading}
+                loading={interactionLocked}
                 onMessageChange={setMessage}
                 onDocumentChange={setDocument}
                 onSubmit={handleSubmit}
