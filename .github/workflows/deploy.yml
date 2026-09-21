@@ -56,7 +56,7 @@ jobs:
           COGNITO_CLIENT_ID: test-client
           DOCUMENTS_BUCKET_NAME: test-bucket
         run: |
-          pytest -q
+          python -m pytest -q
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.3.0
@@ -164,3 +164,4 @@ jobs:
           echo "Task Definition: $TASK_DEFINITION_ARN"
           echo "Cluster: $ECS_CLUSTER"
           echo "Service: $ECS_SERVICE"
+

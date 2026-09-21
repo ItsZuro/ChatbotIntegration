@@ -50,7 +50,7 @@ jobs:
           COGNITO_CLIENT_ID: test-client
           DOCUMENTS_BUCKET_NAME: test-bucket
         run: |
-          pytest -q
+          python -m pytest -q
 
   frontend:
     name: Frontend Validation
@@ -85,3 +85,4 @@ jobs:
 
       - name: Build
         run: npm run build
+

@@ -1,4 +1,3 @@
-@'
 # UTP Assistant
 
 UTP Assistant es una aplicación web orientada a la automatización de solicitudes empresariales mediante inteligencia artificial.
