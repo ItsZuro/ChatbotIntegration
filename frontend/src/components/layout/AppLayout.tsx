@@ -24,6 +24,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  LogOut,
   MessageSquarePlus,
   MoreVertical,
   PanelLeftClose,
@@ -35,6 +36,8 @@ import {
 
 import { useDisclosure } from "@mantine/hooks";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { useState } from "react";
@@ -44,6 +47,8 @@ import {
   useDeleteConversation,
   useRenameConversation,
 } from "../../features/chat/hooks/useConversations";
+
+import { logoutUser } from "../../services/auth.service";
 
 const operationsNavigation = [
   {
@@ -68,6 +73,10 @@ export function AppLayout() {
     useDisclosure(false);
 
   const [collapsed, setCollapsed] = useState(false);
+
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const queryClient = useQueryClient();
 
   const { mutateAsync: deleteConversation, isPending: deletingConversation } =
     useDeleteConversation();
@@ -118,6 +127,39 @@ export function AppLayout() {
     });
 
     closeMobile();
+  };
+
+  const handleLogout = async () => {
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+
+    try {
+      await logoutUser();
+
+      queryClient.clear();
+
+      notifications.show({
+        title: "Sesión cerrada",
+        message: "Has cerrado sesión correctamente.",
+        color: "teal",
+      });
+
+      await navigate({
+        to: "/auth/login",
+        replace: true,
+      });
+    } catch {
+      notifications.show({
+        title: "No se pudo cerrar sesión",
+        message: "Inténtalo nuevamente.",
+        color: "red",
+      });
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const handleOpenConversation = async (conversationId: string) => {
@@ -336,9 +378,34 @@ export function AppLayout() {
               </Box>
             </Group>
 
-            <Avatar size={32} radius="xl" color="violet">
-              U
-            </Avatar>
+            <Menu position="bottom-end" width={190} withinPortal>
+              <Menu.Target>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  size={40}
+                  radius="xl"
+                  aria-label="Abrir menú de usuario"
+                >
+                  <Avatar size={32} radius="xl" color="violet">
+                    U
+                  </Avatar>
+                </ActionIcon>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>Cuenta</Menu.Label>
+
+                <Menu.Item
+                  color="red"
+                  leftSection={<LogOut size={16} />}
+                  disabled={loggingOut}
+                  onClick={() => void handleLogout()}
+                >
+                  Cerrar sesión
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         </AppShell.Header>
 
@@ -565,3 +632,7 @@ export function AppLayout() {
     </>
   );
 }
+
+
+
+
