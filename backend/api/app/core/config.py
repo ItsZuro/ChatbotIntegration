@@ -36,14 +36,17 @@ class Settings(BaseSettings):
     usage_table_name: str = "utp-assistant-usage"
     usage_time_zone: str = "America/Lima"
 
-    assistant_requests_per_minute: int = 10
-    assistant_requests_per_day: int = 100
+    assistant_requests_per_minute: int = 4
+    assistant_requests_per_day: int = 20
+    assistant_global_requests_per_day: int = 60
 
-    audio_requests_per_minute: int = 5
-    audio_requests_per_day: int = 20
+    audio_requests_per_minute: int = 2
+    audio_requests_per_day: int = 5
+    audio_global_requests_per_day: int = 15
 
-    realtime_sessions_per_minute: int = 5
-    realtime_sessions_per_day: int = 20
+    realtime_sessions_per_minute: int = 1
+    realtime_sessions_per_day: int = 2
+    realtime_global_sessions_per_day: int = 6
     
 
     audit_table_name: str = "utp-assistant-audit"
@@ -74,3 +77,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
