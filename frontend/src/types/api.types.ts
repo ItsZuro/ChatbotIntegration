@@ -62,3 +62,54 @@ export interface RealtimeTranscriptionSessionResponse {
   expires_at: number;
   model: string;
 }
+
+
+export interface DashboardMetrics {
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  executed_actions: number;
+  conversations: number;
+}
+
+export interface DashboardActivityItem {
+  id: string;
+  title: string;
+  description: string;
+  integration: string;
+  status: 'SUCCESS' | 'ERROR';
+  timestamp: string;
+}
+
+export interface DashboardSummaryResponse {
+  metrics: DashboardMetrics;
+  recent_activity: DashboardActivityItem[];
+}
+
+export interface DocumentItem {
+  object_key: string;
+  file_name: string;
+  size: number;
+  last_modified: string;
+}
+
+export interface DocumentListResponse {
+  success: boolean;
+  documents: DocumentItem[];
+}
+
+export interface DownloadUrlResponse {
+  success: boolean;
+  action: 'download_url_generated';
+  object_key: string;
+  download_url: string;
+  expires_in: number;
+}
+
+export interface DeleteDocumentResponse {
+  success: boolean;
+  action: 'document_deleted';
+  object_key: string;
+  deleted_versions: number;
+}
+

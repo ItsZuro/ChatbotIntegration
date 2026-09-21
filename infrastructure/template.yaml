@@ -1,35 +1,21 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: AWS::Serverless-2016-10-31
 
 Description: >
-  Infraestructura serverless inicial de UTP Assistant.
-
-Globals:
-  Function:
-    Runtime: python3.14
-    Timeout: 30
-    MemorySize: 256
-    Architectures:
-      - x86_64
+  Infraestructura base de UTP Assistant.
+  FastAPI será desplegado posteriormente sobre ECS Fargate.
 
 Resources:
-  UtpAssistantHttpApi:
-    Type: AWS::Serverless::HttpApi
-    Properties:
-      StageName: '$default'
 
-      CorsConfiguration:
-        AllowOrigins:
-          - http://localhost:5173
-        AllowHeaders:
-          - Content-Type
-        AllowMethods:
-          - POST
-          - OPTIONS
-        MaxAge: 600
+  # =========================================================
+  # DYNAMODB - AUDITORÍA
+  # =========================================================
 
   UtpAssistantAuditTable:
     Type: AWS::DynamoDB::Table
+
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
     Properties:
       TableName: utp-assistant-audit
       BillingMode: PAY_PER_REQUEST
@@ -45,8 +31,17 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+
+  # =========================================================
+  # DYNAMODB - CONVERSACIONES
+  # =========================================================
+
   UtpAssistantConversationsTable:
     Type: AWS::DynamoDB::Table
+
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
     Properties:
       TableName: utp-assistant-conversations
       BillingMode: PAY_PER_REQUEST
@@ -54,161 +49,50 @@ Resources:
       AttributeDefinitions:
         - AttributeName: pk
           AttributeType: S
+
         - AttributeName: sk
           AttributeType: S
+
         - AttributeName: gsi1pk
           AttributeType: S
+
         - AttributeName: gsi1sk
           AttributeType: S
 
       KeySchema:
         - AttributeName: pk
           KeyType: HASH
+
         - AttributeName: sk
           KeyType: RANGE
 
       GlobalSecondaryIndexes:
         - IndexName: UserConversationsIndex
+
           KeySchema:
             - AttributeName: gsi1pk
               KeyType: HASH
+
             - AttributeName: gsi1sk
               KeyType: RANGE
+
           Projection:
             ProjectionType: ALL
 
       SSESpecification:
         SSEEnabled: true
 
-  UtpAssistantOrchestrator:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: utp-assistant-orchestrator
-      CodeUri: ../backend/orchestrator/
-      Handler: app.lambda_handler
 
-      Environment:
-        Variables:
-          OPENAI_SECRET_ID: utp-assistant/openai
-          OPENAI_MODEL: gpt-5.6-luna
-          OPENAI_REASONING_EFFORT: low
-          HUBSPOT_FUNCTION_NAME: !Ref UtpAssistantHubSpotFunction
-          JIRA_FUNCTION_NAME: !Ref UtpAssistantJiraFunction
-          GOOGLE_FUNCTION_NAME: !Ref UtpAssistantGoogleFunction
-          AUDIT_TABLE_NAME: !Ref UtpAssistantAuditTable
-          DOCUMENTS_FUNCTION_NAME: !Ref UtpAssistantDocumentsFunction
-
-      Policies:
-        - Statement:
-            - Sid: ReadOpenAISecret
-              Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/openai-*"
-              
-        - Statement:
-            - Sid: InvokeHubSpotFunction
-              Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !GetAtt UtpAssistantHubSpotFunction.Arn
-
-        - Statement:
-            - Sid: InvokeJiraFunction
-              Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !GetAtt UtpAssistantJiraFunction.Arn
-              
-        - Statement:
-            - Sid: InvokeGoogleFunction
-              Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !GetAtt UtpAssistantGoogleFunction.Arn
-
-        - Statement:
-            - Sid: WriteAuditRecords
-              Effect: Allow
-              Action:
-                - dynamodb:PutItem
-              Resource: !GetAtt UtpAssistantAuditTable.Arn
-
-        - Statement:
-            - Sid: InvokeDocumentsFunction
-              Effect: Allow
-              Action:
-                - lambda:InvokeFunction
-              Resource: !GetAtt UtpAssistantDocumentsFunction.Arn
-
-      Events:
-        AssistantMessage:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref UtpAssistantHttpApi
-            Path: /assistant/message
-            Method: POST
-
-  UtpAssistantJiraFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: utp-assistant-jira
-      CodeUri: ../backend/functions/jira/
-      Handler: app.lambda_handler
-
-      Environment:
-        Variables:
-          JIRA_SECRET_ID: utp-assistant/jira
-
-      Policies:
-        - Statement:
-            - Sid: ReadJiraSecret
-              Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/jira-*"
-
-  UtpAssistantGoogleFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: utp-assistant-google
-      CodeUri: ../backend/functions/google/
-      Handler: app.lambda_handler
-
-      Environment:
-        Variables:
-          GOOGLE_SECRET_ID: utp-assistant/google
-          GOOGLE_TIME_ZONE: America/Lima
-
-      Policies:
-        - Statement:
-            - Sid: ReadGoogleSecret
-              Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/google-*"
-
-  UtpAssistantHubSpotFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: utp-assistant-hubspot
-      CodeUri: ../backend/functions/hubspot/
-      Handler: app.lambda_handler
-
-      Environment:
-        Variables:
-          HUBSPOT_SECRET_ID: utp-assistant/hubspot
-
-      Policies:
-        - Statement:
-            - Sid: ReadHubSpotSecret
-              Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:utp-assistant/hubspot-*"
+  # =========================================================
+  # S3 - DOCUMENTOS
+  # =========================================================
 
   UtpAssistantDocumentsBucket:
     Type: AWS::S3::Bucket
+
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
     Properties:
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -228,48 +112,110 @@ Resources:
         CorsRules:
           - AllowedHeaders:
               - '*'
+
             AllowedMethods:
               - PUT
+
             AllowedOrigins:
               - http://localhost:5173
+
             ExposedHeaders:
               - ETag
+
             MaxAge: 3600
 
-  UtpAssistantDocumentsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: utp-assistant-documents
-      CodeUri: ../backend/functions/documents/
-      Handler: app.lambda_handler
 
-      Environment:
-        Variables:
-          DOCUMENTS_BUCKET: !Ref UtpAssistantDocumentsBucket
+  # =========================================================
+  # COGNITO - USUARIOS
+  # =========================================================
+
+  UtpAssistantUserPool:
+    Type: AWS::Cognito::UserPool
+
+    Properties:
+      UserPoolName: utp-assistant-users
+
+      UsernameAttributes:
+        - email
+
+      AutoVerifiedAttributes:
+        - email
+
+      UsernameConfiguration:
+        CaseSensitive: false
 
       Policies:
-        - Statement:
-            - Sid: ReadWriteDocuments
-              Effect: Allow
-              Action:
-                - s3:PutObject
-                - s3:GetObject
-              Resource: !Sub "${UtpAssistantDocumentsBucket.Arn}/*"
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
 
-      Events:
-        GenerateUploadUrl:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref UtpAssistantHttpApi
-            Path: /documents/upload-url
-            Method: POST
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+            
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+
+
+  UtpAssistantUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+
+    Properties:
+      ClientName: utp-assistant-web
+
+      UserPoolId:
+        Ref: UtpAssistantUserPool
+
+      GenerateSecret: false
+
+      PreventUserExistenceErrors: ENABLED
+
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
 
 Outputs:
 
-  ApiUrl:
-    Description: URL del endpoint principal de UTP Assistant
-    Value: !Sub "https://${UtpAssistantHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/assistant/message"
+  AuditTableName:
+    Description: Tabla DynamoDB de auditoría
+    Value:
+      Ref: UtpAssistantAuditTable
 
-  OrchestratorFunctionArn:
-    Description: ARN de la Lambda Orchestrator
-    Value: !GetAtt UtpAssistantOrchestrator.Arn
+
+  ConversationsTableName:
+    Description: Tabla DynamoDB de conversaciones
+    Value:
+      Ref: UtpAssistantConversationsTable
+
+
+  DocumentsBucketName:
+    Description: Bucket privado de documentos
+    Value:
+      Ref: UtpAssistantDocumentsBucket
+
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool de UTP Assistant
+    Value:
+      Ref: UtpAssistantUserPool
+
+
+  CognitoUserPoolClientId:
+    Description: Cognito App Client del frontend
+    Value:
+      Ref: UtpAssistantUserPoolClient

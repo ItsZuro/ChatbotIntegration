@@ -22,11 +22,16 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
 
     openai_secret_id: str = "utp-assistant/openai"
+    jira_secret_id: str = "utp-assistant/jira"
+    hubspot_secret_id: str = "utp-assistant/hubspot"
+    google_secret_id: str = "utp-assistant/google"
+    google_time_zone: str = "America/Lima"
 
-    hubspot_function_name: str = "utp-assistant-hubspot"
-    jira_function_name: str = "utp-assistant-jira"
-    google_function_name: str = "utp-assistant-google"
-    documents_function_name: str = "utp-assistant-documents"
+
+    documents_bucket_name: str = ""
+    cognito_user_pool_id: str = ""
+    cognito_client_id: str = ""
+    
 
     audit_table_name: str = "utp-assistant-audit"
     conversations_table_name: str = "utp-assistant-conversations"

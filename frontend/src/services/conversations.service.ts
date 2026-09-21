@@ -6,6 +6,11 @@ import type {
   SendConversationMessageResponse,
 } from '../types/api.types';
 
+interface RenameConversationInput {
+  conversationId: string;
+  title: string;
+}
+
 
 interface CreateConversationInput {
   title?: string;
@@ -83,4 +88,19 @@ export async function deleteConversation(
   await api.delete(
     `/conversations/${conversationId}`
   );
+}
+
+export async function renameConversation({
+  conversationId,
+  title,
+}: RenameConversationInput): Promise<Conversation> {
+  const { data } =
+    await api.patch<Conversation>(
+      `/conversations/${conversationId}`,
+      {
+        title,
+      }
+    );
+
+  return data;
 }

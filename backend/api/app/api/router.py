@@ -15,6 +15,15 @@ from app.api.routes.conversations import (
 from app.api.routes.audio import (
     router as audio_router,
 )
+from app.api.routes.dashboard import (
+    router as dashboard_router,
+)
+from app.api.routes.activity import (
+    router as activity_router,
+)
+from app.api.routes.auth import (
+    router as auth_router,
+)
 
 api_router = APIRouter()
 
@@ -24,4 +33,13 @@ api_router.include_router(documents_router)
 api_router.include_router(conversations_router)
 api_router.include_router(
     audio_router
+)
+api_router.include_router(
+    dashboard_router
+)
+api_router.include_router(
+    activity_router
+)
+api_router.include_router(
+    auth_router
 )

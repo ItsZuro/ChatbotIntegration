@@ -17,6 +17,9 @@ import { RouterProvider } from "@tanstack/react-router";
 
 import { router } from './app/router/router';
 import { theme } from "./app/theme";
+import {
+  configureAuth,
+} from './config/auth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +33,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+configureAuth();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

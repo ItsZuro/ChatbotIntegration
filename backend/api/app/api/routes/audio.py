@@ -10,9 +10,7 @@ from fastapi import (
 from app.core.config import (
     get_settings,
 )
-from app.schemas.audio import (
-    TranscriptionResponse,
-)
+
 from app.services.secrets_service import (
     get_openai_api_key,
 )

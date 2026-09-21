@@ -6,8 +6,21 @@ import {
 
 import { RootLayout } from "./RootLayout";
 
+import { ActivityPage } from "../../pages/ActivityPage";
 import { ChatPage } from "../../pages/ChatPage";
 import { DashboardPage } from "../../pages/DashboardPage";
+import { DocumentsPage } from "../../pages/DocumentsPage";
+import {
+  LoginPage,
+} from "../../pages/auth/LoginPage";
+
+import {
+  RegisterPage,
+} from "../../pages/auth/RegisterPage";
+
+import {
+  ConfirmPage,
+} from "../../pages/auth/ConfirmPage";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -31,18 +44,66 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
+const activityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/activity",
+  component: ActivityPage,
+});
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/login",
+  component: LoginPage,
+});
+
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/register",
+  component: RegisterPage,
+});
+
+
+const confirmRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/confirm",
+  component: ConfirmPage,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ) => ({
+    email:
+      typeof search.email === "string"
+        ? search.email
+        : undefined,
+  }),
+});
+
+const documentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+
+  path: "/documents",
+
+  component: DocumentsPage,
+});
+
 const newRequestRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/requests/new",
   component: ChatPage,
 });
 
-const routeTree = rootRoute.addChildren([
-  chatRoute,
-  conversationRoute,
-  dashboardRoute,
-  newRequestRoute,
-]);
+const routeTree =
+  rootRoute.addChildren([
+    chatRoute,
+    conversationRoute,
+    dashboardRoute,
+    documentsRoute,
+    activityRoute,
+    newRequestRoute,
+    loginRoute,
+    registerRoute,
+    confirmRoute,
+  ]);
 
 export const router = createRouter({
   routeTree,

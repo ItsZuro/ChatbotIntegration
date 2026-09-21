@@ -214,6 +214,100 @@ def update_conversation_context(
         },
     )
 
+def rename_conversation(
+    conversation_id: str,
+    title: str,
+) -> dict | None:
+    conversation = (
+        get_conversation(
+            conversation_id=(
+                conversation_id
+            )
+        )
+    )
+
+    if not conversation:
+        return None
+
+    response = (
+        conversations_table
+        .update_item(
+            Key={
+                "pk": (
+                    f"CONV#"
+                    f"{conversation_id}"
+                ),
+                "sk": (
+                    "METADATA"
+                ),
+            },
+            UpdateExpression=(
+                "SET title = :title"
+            ),
+            ExpressionAttributeValues={
+                ":title": title,
+            },
+            ReturnValues=(
+                "ALL_NEW"
+            ),
+        )
+    )
+
+    item = response.get(
+        "Attributes"
+    )
+
+    if not item:
+        return None
+
+    return {
+        "conversation_id": (
+            item[
+                "conversation_id"
+            ]
+        ),
+        "user_id": (
+            item[
+                "user_id"
+            ]
+        ),
+        "title": (
+            item[
+                "title"
+            ]
+        ),
+        "created_at": (
+            item[
+                "created_at"
+            ]
+        ),
+        "updated_at": (
+            item[
+                "updated_at"
+            ]
+        ),
+    }
+
+def get_user_conversation(
+    conversation_id: str,
+    user_id: str,
+) -> dict | None:
+    conversation = get_conversation(
+        conversation_id=conversation_id
+    )
+
+    if not conversation:
+        return None
+
+    if (
+        conversation.get("user_id")
+        != user_id
+    ):
+        return None
+
+    return conversation
+
+
 def delete_conversation(
     conversation_id: str,
 ) -> bool:

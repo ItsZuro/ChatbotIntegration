@@ -1,74 +1,82 @@
-import json
-
-import boto3
-
-from app.core.config import get_settings
-
-
-settings = get_settings()
-
-lambda_client = boto3.client(
-    "lambda",
-    region_name=settings.aws_region,
+from app.services.google_calendar_service import (
+    create_google_calendar_event,
 )
-
-
-def invoke_lambda(
-    function_name: str,
-    arguments: dict,
-) -> dict:
-    response = lambda_client.invoke(
-        FunctionName=function_name,
-        InvocationType="RequestResponse",
-        Payload=json.dumps(
-            arguments,
-            ensure_ascii=False,
-        ).encode("utf-8"),
-    )
-
-    payload = json.loads(
-        response["Payload"]
-        .read()
-        .decode("utf-8")
-    )
-
-    if "FunctionError" in response:
-        return {
-            "success": False,
-            "error": (
-                f"La función {function_name} produjo "
-                "un error interno."
-            ),
-        }
-
-    return payload
+from app.services.hubspot_service import (
+    update_hubspot_contact,
+)
+from app.services.jira_service import (
+    create_jira_ticket,
+)
 
 
 def execute_tool(
     tool_name: str,
     arguments: dict,
 ) -> dict:
-    if tool_name == "actualizar_contacto_en_hubspot":
-        return invoke_lambda(
-            function_name=settings.hubspot_function_name,
-            arguments=arguments,
+    if tool_name == (
+        "actualizar_contacto_en_hubspot"
+    ):
+        return update_hubspot_contact(
+            nombre=arguments[
+                "nombre"
+            ],
+            email=arguments[
+                "email"
+            ],
+            apellido=arguments.get(
+                "apellido"
+            ),
+            empresa=arguments.get(
+                "empresa"
+            ),
         )
 
-    if tool_name == "crear_ticket_en_jira":
-        return invoke_lambda(
-            function_name=settings.jira_function_name,
-            arguments=arguments,
+    if tool_name == (
+        "crear_ticket_en_jira"
+    ):
+        return create_jira_ticket(
+            titulo=arguments[
+                "titulo"
+            ],
+            descripcion=arguments[
+                "descripcion"
+            ],
+            cliente=arguments.get(
+                "cliente"
+            ),
+            modulo=arguments.get(
+                "modulo"
+            ),
         )
 
-    if tool_name == "agendar_reunion_en_google_calendar":
-        return invoke_lambda(
-            function_name=settings.google_function_name,
-            arguments=arguments,
+    if tool_name == (
+        "agendar_reunion_en_google_calendar"
+    ):
+        return create_google_calendar_event(
+            titulo=arguments[
+                "titulo"
+            ],
+            fecha=arguments[
+                "fecha"
+            ],
+            hora_inicio=arguments[
+                "hora_inicio"
+            ],
+            duracion_minutos=arguments[
+                "duracion_minutos"
+            ],
+            descripcion=arguments.get(
+                "descripcion"
+            ),
+            participantes=arguments.get(
+                "participantes"
+            ),
         )
 
     return {
         "success": False,
         "error": (
-            f"Herramienta no implementada: {tool_name}"
+            "Herramienta no implementada: "
+            f"{tool_name}"
         ),
     }

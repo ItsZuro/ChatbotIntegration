@@ -1,8 +1,40 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+)
 from typing import Any
 
 class CreateConversationRequest(BaseModel):
     title: str = "Nueva conversación"
+
+class RenameConversationRequest(
+    BaseModel
+):
+    title: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+
+    @field_validator(
+        "title"
+    )
+    @classmethod
+    def validate_title(
+        cls,
+        value: str,
+    ) -> str:
+        clean_title = (
+            value.strip()
+        )
+
+        if not clean_title:
+            raise ValueError(
+                "El título no puede "
+                "estar vacío."
+            )
+
+        return clean_title
 
 
 class ConversationResponse(BaseModel):

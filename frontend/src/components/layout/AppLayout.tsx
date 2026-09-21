@@ -7,6 +7,7 @@ import {
   Button,
   Group,
   Menu,
+  Modal,
   NavLink,
   ScrollArea,
   Stack,
@@ -27,6 +28,7 @@ import {
   MoreVertical,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Search,
   Trash2,
 } from "lucide-react";
@@ -40,6 +42,7 @@ import { useState } from "react";
 import {
   useConversations,
   useDeleteConversation,
+  useRenameConversation,
 } from "../../features/chat/hooks/useConversations";
 
 const operationsNavigation = [
@@ -70,6 +73,19 @@ export function AppLayout() {
     useDeleteConversation();
 
   const [conversationSearch, setConversationSearch] = useState("");
+
+  const [renameTarget, setRenameTarget] = useState<{
+    conversationId: string;
+    currentTitle: string;
+  } | null>(null);
+
+  const [renameTitle, setRenameTitle] = useState("");
+
+  const {
+    mutateAsync: renameConversation,
+
+    isPending: renamingConversation,
+  } = useRenameConversation();
 
   const { data: conversations = [], isLoading: conversationsLoading } =
     useConversations();
@@ -158,130 +174,345 @@ export function AppLayout() {
     });
   };
 
+  const handleOpenRename = (conversationId: string, title: string) => {
+    setRenameTarget({
+      conversationId,
+      currentTitle: title,
+    });
+
+    setRenameTitle(title);
+  };
+
+  const handleCloseRename = () => {
+    if (renamingConversation) {
+      return;
+    }
+
+    setRenameTarget(null);
+
+    setRenameTitle("");
+  };
+
+  const handleRenameConversation = async () => {
+    const cleanTitle = renameTitle.trim();
+
+    if (!renameTarget || !cleanTitle) {
+      return;
+    }
+
+    try {
+      await renameConversation({
+        conversationId: renameTarget.conversationId,
+
+        title: cleanTitle,
+      });
+
+      notifications.show({
+        title: "Conversación renombrada",
+
+        message: "El nuevo nombre se guardó correctamente.",
+
+        color: "teal",
+      });
+
+      setRenameTarget(null);
+
+      setRenameTitle("");
+    } catch {
+      notifications.show({
+        title: "No se pudo renombrar",
+
+        message: "Inténtalo nuevamente.",
+
+        color: "red",
+      });
+    }
+  };
+
   return (
-    <AppShell
-      header={{
-        height: 58,
-      }}
-      navbar={{
-        width: navbarWidth,
-        breakpoint: "md",
-        collapsed: {
-          mobile: !mobileOpened,
-        },
-      }}
-      padding="md"
-      transitionDuration={180}
-      transitionTimingFunction="ease"
-    >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <Tooltip label={collapsed ? "Expandir menú" : "Contraer menú"}>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                visibleFrom="md"
-                onClick={() => setCollapsed((value) => !value)}
-              >
-                {collapsed ? (
-                  <PanelLeftOpen size={19} />
-                ) : (
-                  <PanelLeftClose size={19} />
-                )}
-              </ActionIcon>
-            </Tooltip>
-
-            <Burger
-              opened={mobileOpened}
-              onClick={toggleMobile}
-              hiddenFrom="md"
-              size="sm"
-            />
-
-            <ThemeIcon
-              size={34}
-              radius="md"
-              variant="gradient"
-              gradient={{
-                from: "violet",
-                to: "indigo",
-              }}
-            >
-              <Bot size={19} />
-            </ThemeIcon>
-
-            <Box>
-              <Text fw={700} size="sm">
-                UTP Assistant
-              </Text>
-
-              <Text size="xs" c="dimmed" visibleFrom="sm">
-                UTPConsult
-              </Text>
-            </Box>
-          </Group>
-
-          <Avatar size={32} radius="xl" color="violet">
-            U
-          </Avatar>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Navbar
-        p="sm"
-        style={{
-          transition: "width 180ms ease",
-        }}
+    <>
+      <Modal
+        opened={renameTarget !== null}
+        onClose={handleCloseRename}
+        title="Renombrar conversación"
+        centered
       >
-        {/* Nuevo chat + buscador */}
-        <AppShell.Section>
-          {collapsed ? (
-            <Tooltip label="Nuevo chat" position="right">
-              <ActionIcon
-                w="100%"
-                h={40}
+        <TextInput
+          label="Nombre del chat"
+          placeholder="Escribe un nombre"
+          value={renameTitle}
+          maxLength={80}
+          autoFocus
+          onChange={(event) => setRenameTitle(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+
+              void handleRenameConversation();
+            }
+          }}
+        />
+
+        <Group justify="flex-end" mt="lg">
+          <Button
+            variant="default"
+            disabled={renamingConversation}
+            onClick={handleCloseRename}
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            color="violet"
+            loading={renamingConversation}
+            disabled={!renameTitle.trim()}
+            onClick={() => void handleRenameConversation()}
+          >
+            Guardar
+          </Button>
+        </Group>
+      </Modal>
+
+      <AppShell
+        header={{
+          height: 58,
+        }}
+        navbar={{
+          width: navbarWidth,
+          breakpoint: "md",
+          collapsed: {
+            mobile: !mobileOpened,
+          },
+        }}
+        padding="md"
+        transitionDuration={180}
+        transitionTimingFunction="ease"
+      >
+        <AppShell.Header>
+          <Group h="100%" px="md" justify="space-between">
+            <Group gap="sm">
+              <Tooltip label={collapsed ? "Expandir menú" : "Contraer menú"}>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  visibleFrom="md"
+                  onClick={() => setCollapsed((value) => !value)}
+                >
+                  {collapsed ? (
+                    <PanelLeftOpen size={19} />
+                  ) : (
+                    <PanelLeftClose size={19} />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+
+              <Burger
+                opened={mobileOpened}
+                onClick={toggleMobile}
+                hiddenFrom="md"
+                size="sm"
+              />
+
+              <ThemeIcon
+                size={34}
                 radius="md"
+                variant="gradient"
+                gradient={{
+                  from: "violet",
+                  to: "indigo",
+                }}
+              >
+                <Bot size={19} />
+              </ThemeIcon>
+
+              <Box>
+                <Text fw={700} size="sm">
+                  UTP Assistant
+                </Text>
+
+                <Text size="xs" c="dimmed" visibleFrom="sm">
+                  UTPConsult
+                </Text>
+              </Box>
+            </Group>
+
+            <Avatar size={32} radius="xl" color="violet">
+              U
+            </Avatar>
+          </Group>
+        </AppShell.Header>
+
+        <AppShell.Navbar
+          p="sm"
+          style={{
+            transition: "width 180ms ease",
+          }}
+        >
+          {/* Nuevo chat + buscador */}
+          <AppShell.Section>
+            {collapsed ? (
+              <Tooltip label="Nuevo chat" position="right">
+                <ActionIcon
+                  w="100%"
+                  h={40}
+                  radius="md"
+                  variant="light"
+                  color="violet"
+                  onClick={handleNewConversation}
+                >
+                  <MessageSquarePlus size={19} />
+                </ActionIcon>
+              </Tooltip>
+            ) : (
+              <Button
+                fullWidth
+                justify="flex-start"
                 variant="light"
                 color="violet"
+                radius="md"
+                leftSection={<MessageSquarePlus size={18} />}
                 onClick={handleNewConversation}
               >
-                <MessageSquarePlus size={19} />
-              </ActionIcon>
-            </Tooltip>
-          ) : (
-            <Button
-              fullWidth
-              justify="flex-start"
-              variant="light"
-              color="violet"
-              radius="md"
-              leftSection={<MessageSquarePlus size={18} />}
-              onClick={handleNewConversation}
-            >
-              Nuevo chat
-            </Button>
-          )}
+                Nuevo chat
+              </Button>
+            )}
 
-          {!collapsed && (
-            <TextInput
-              mt="sm"
-              size="sm"
-              radius="md"
-              placeholder="Buscar chats..."
-              value={conversationSearch}
-              onChange={(event) =>
-                setConversationSearch(event.currentTarget.value)
-              }
-              leftSection={<Search size={15} />}
-            />
-          )}
-        </AppShell.Section>
+            {!collapsed && (
+              <TextInput
+                mt="sm"
+                size="sm"
+                radius="md"
+                placeholder="Buscar chats..."
+                value={conversationSearch}
+                onChange={(event) =>
+                  setConversationSearch(event.currentTarget.value)
+                }
+                leftSection={<Search size={15} />}
+              />
+            )}
+          </AppShell.Section>
 
-        {/* Conversaciones recientes */}
-        <AppShell.Section grow component={ScrollArea} mt="lg">
-          {!collapsed && (
-            <>
+          {/* Conversaciones recientes */}
+          <AppShell.Section grow component={ScrollArea} mt="lg">
+            {!collapsed && (
+              <>
+                <Text
+                  size="xs"
+                  fw={700}
+                  c="dimmed"
+                  tt="uppercase"
+                  px="sm"
+                  mb="xs"
+                >
+                  Recientes
+                </Text>
+
+                {conversationsLoading ? (
+                  <Box px="sm" py="md">
+                    <Text size="sm" c="dimmed" ta="center">
+                      Cargando conversaciones...
+                    </Text>
+                  </Box>
+                ) : filteredConversations.length > 0 ? (
+                  <Stack gap={3}>
+                    {filteredConversations.map((conversation) => {
+                      const active =
+                        pathname === `/chat/${conversation.conversation_id}`;
+
+                      return (
+                        <Box
+                          key={conversation.conversation_id}
+                          style={{
+                            position: "relative",
+                          }}
+                        >
+                          <NavLink
+                            active={active}
+                            label={conversation.title}
+                            leftSection={<MessageSquarePlus size={17} />}
+                            color="violet"
+                            variant="light"
+                            onClick={() =>
+                              handleOpenConversation(
+                                conversation.conversation_id,
+                              )
+                            }
+                            style={{
+                              borderRadius: 9,
+                              paddingRight: 38,
+                            }}
+                          />
+
+                          <Menu position="right-start" withinPortal>
+                            <Menu.Target>
+                              <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                size="sm"
+                                disabled={deletingConversation}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                }}
+                                style={{
+                                  position: "absolute",
+                                  right: 6,
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
+                                }}
+                              >
+                                <MoreVertical size={16} />
+                              </ActionIcon>
+                            </Menu.Target>
+
+                            <Menu.Dropdown>
+                              <Menu.Item
+                                leftSection={<Pencil size={15} />}
+                                onClick={() =>
+                                  handleOpenRename(
+                                    conversation.conversation_id,
+                                    conversation.title,
+                                  )
+                                }
+                              >
+                                Renombrar
+                              </Menu.Item>
+
+                              <Menu.Divider />
+
+                              <Menu.Item
+                                color="red"
+                                leftSection={<Trash2 size={15} />}
+                                onClick={() =>
+                                  handleDeleteConversation(
+                                    conversation.conversation_id,
+                                    conversation.title,
+                                  )
+                                }
+                              >
+                                Eliminar
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                ) : (
+                  <Box px="sm" py="md">
+                    <Text size="sm" c="dimmed" ta="center">
+                      {conversationSearch
+                        ? "No se encontraron conversaciones."
+                        : "Aún no hay conversaciones guardadas."}
+                    </Text>
+                  </Box>
+                )}
+              </>
+            )}
+          </AppShell.Section>
+
+          {/* Herramientas */}
+          <AppShell.Section>
+            {!collapsed && (
               <Text
                 size="xs"
                 fw={700}
@@ -290,140 +521,47 @@ export function AppLayout() {
                 px="sm"
                 mb="xs"
               >
-                Recientes
+                Herramientas
               </Text>
+            )}
 
-              {conversationsLoading ? (
-                <Box px="sm" py="md">
-                  <Text size="sm" c="dimmed" ta="center">
-                    Cargando conversaciones...
-                  </Text>
-                </Box>
-              ) : filteredConversations.length > 0 ? (
-                <Stack gap={3}>
-                  {filteredConversations.map((conversation) => {
-                    const active =
-                      pathname === `/chat/${conversation.conversation_id}`;
+            <Stack gap={4}>
+              {operationsNavigation.map((item) => {
+                const Icon = item.icon;
 
-                    return (
-                      <Box
-                        key={conversation.conversation_id}
-                        style={{
-                          position: "relative",
-                        }}
-                      >
-                        <NavLink
-                          active={active}
-                          label={conversation.title}
-                          leftSection={<MessageSquarePlus size={17} />}
-                          color="violet"
-                          variant="light"
-                          onClick={() =>
-                            handleOpenConversation(conversation.conversation_id)
-                          }
-                          style={{
-                            borderRadius: 9,
-                            paddingRight: 38,
-                          }}
-                        />
+                const active = pathname === item.path;
 
-                        <Menu position="right-start" withinPortal>
-                          <Menu.Target>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              size="sm"
-                              disabled={deletingConversation}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                              }}
-                              style={{
-                                position: "absolute",
-                                right: 6,
-                                top: "50%",
-                                transform: "translateY(-50%)",
-                              }}
-                            >
-                              <MoreVertical size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
+                const nav = (
+                  <NavLink
+                    key={item.path}
+                    active={active}
+                    label={collapsed ? undefined : item.label}
+                    leftSection={<Icon size={18} />}
+                    color="violet"
+                    variant="light"
+                    onClick={() => handleNavigate(item.path)}
+                    style={{
+                      borderRadius: 9,
+                    }}
+                  />
+                );
 
-                          <Menu.Dropdown>
-                            <Menu.Item
-                              color="red"
-                              leftSection={<Trash2 size={15} />}
-                              onClick={() =>
-                                handleDeleteConversation(
-                                  conversation.conversation_id,
-                                  conversation.title,
-                                )
-                              }
-                            >
-                              Eliminar
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              ) : (
-                <Box px="sm" py="md">
-                  <Text size="sm" c="dimmed" ta="center">
-                    {conversationSearch
-                      ? "No se encontraron conversaciones."
-                      : "Aún no hay conversaciones guardadas."}
-                  </Text>
-                </Box>
-              )}
-            </>
-          )}
-        </AppShell.Section>
+                return collapsed ? (
+                  <Tooltip key={item.path} label={item.label} position="right">
+                    {nav}
+                  </Tooltip>
+                ) : (
+                  nav
+                );
+              })}
+            </Stack>
+          </AppShell.Section>
+        </AppShell.Navbar>
 
-        {/* Herramientas */}
-        <AppShell.Section>
-          {!collapsed && (
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" mb="xs">
-              Herramientas
-            </Text>
-          )}
-
-          <Stack gap={4}>
-            {operationsNavigation.map((item) => {
-              const Icon = item.icon;
-
-              const active = pathname === item.path;
-
-              const nav = (
-                <NavLink
-                  key={item.path}
-                  active={active}
-                  label={collapsed ? undefined : item.label}
-                  leftSection={<Icon size={18} />}
-                  color="violet"
-                  variant="light"
-                  onClick={() => handleNavigate(item.path)}
-                  style={{
-                    borderRadius: 9,
-                  }}
-                />
-              );
-
-              return collapsed ? (
-                <Tooltip key={item.path} label={item.label} position="right">
-                  {nav}
-                </Tooltip>
-              ) : (
-                nav
-              );
-            })}
-          </Stack>
-        </AppShell.Section>
-      </AppShell.Navbar>
-
-      <AppShell.Main>
-        <Outlet />
-      </AppShell.Main>
-    </AppShell>
+        <AppShell.Main>
+          <Outlet />
+        </AppShell.Main>
+      </AppShell>
+    </>
   );
 }

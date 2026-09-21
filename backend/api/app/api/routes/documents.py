@@ -1,11 +1,25 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Query,
+)
+
+
+from app.services.documents_service import (
+    generate_download_url,
+    generate_upload_url,
+    list_documents,
+    delete_document,
+)
 
 from app.schemas.documents import (
+    DocumentListResponse,
+    DownloadUrlRequest,
+    DownloadUrlResponse,
     UploadUrlRequest,
     UploadUrlResponse,
+    DeleteDocumentResponse
 )
-from app.services.documents_service import generate_upload_url
-
 
 router = APIRouter(
     prefix="/documents",
@@ -43,5 +57,100 @@ def create_upload_url(
             detail=(
                 "No se pudo generar la URL "
                 "de subida."
+            ),
+        ) from exc
+
+
+@router.get(
+    "",
+    response_model=(
+        DocumentListResponse
+    ),
+)
+def get_documents():
+    try:
+        return list_documents(
+            limit=100,
+        )
+
+    except Exception as exc:
+        print(
+            "Documents list error: "
+            f"{type(exc).__name__}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "No se pudieron listar "
+                "los documentos."
+            ),
+        ) from exc
+
+
+@router.post(
+    "/download-url",
+    response_model=(
+        DownloadUrlResponse
+    ),
+)
+def create_download_url(
+    request: DownloadUrlRequest,
+):
+    try:
+        return generate_download_url(
+            object_key=(
+                request.object_key
+            ),
+        )
+
+    except Exception as exc:
+        print(
+            "Document download "
+            "URL error: "
+            f"{type(exc).__name__}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "No se pudo generar "
+                "la URL de descarga."
+            ),
+        ) from exc
+
+@router.delete(
+    "",
+    response_model=(
+        DeleteDocumentResponse
+    ),
+)
+def remove_document(
+    object_key: str = Query(
+        min_length=1,
+    ),
+):
+    try:
+        return delete_document(
+            object_key=object_key,
+        )
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        print(
+            "Document delete error: "
+            f"{type(exc).__name__}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "No se pudo eliminar "
+                "el documento."
             ),
         ) from exc

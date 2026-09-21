@@ -8,6 +8,7 @@ from app.schemas.conversations import (
     CreateConversationRequest,
     ConversationResponse,
     ConversationMessageResponse,
+    RenameConversationRequest,
 )
 from app.services.conversation_service import (
     create_conversation,
@@ -17,6 +18,8 @@ from app.services.conversation_service import (
     save_message,
     update_conversation_context,
     delete_conversation,
+    rename_conversation,
+    get_user_conversation
 )
 from uuid import uuid4
 
@@ -31,6 +34,15 @@ from app.services.audit_service import write_audit_record
 from app.services.documents_service import extract_document_text
 from app.services.secrets_service import get_openai_api_key
 
+from fastapi import Depends
+
+from app.core.security import (
+    get_current_user,
+)
+from app.schemas.auth import (
+    CurrentUser,
+)
+
 
 router = APIRouter(
     prefix="/conversations",
@@ -44,9 +56,12 @@ router = APIRouter(
 )
 def create_new_conversation(
     request: CreateConversationRequest,
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
     return create_conversation(
-        user_id="default",
+        user_id=current_user.sub,
         title=request.title,
     )
 
@@ -54,9 +69,13 @@ def create_new_conversation(
     "",
     response_model=list[ConversationResponse],
 )
-def get_conversations():
+def get_conversations(
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
+):
     return list_conversations(
-        user_id="default",
+        user_id=current_user.sub,
     )
 
 @router.get(
@@ -65,7 +84,23 @@ def get_conversations():
 )
 def get_conversation_messages(
     conversation_id: str,
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
+    conversation = get_user_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user.sub,
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "La conversación no existe."
+            ),
+        )
+
     return list_messages(
         conversation_id=conversation_id,
     )
@@ -77,11 +112,15 @@ def get_conversation_messages(
 def send_conversation_message(
     conversation_id: str,
     request: SendConversationMessageRequest,
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
     request_id = str(uuid4())
 
-    conversation = get_conversation(
-        conversation_id=conversation_id
+    conversation = get_user_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user.sub,
     )
 
     if not conversation:
@@ -163,13 +202,60 @@ def send_conversation_message(
             detail="No se pudo procesar el mensaje.",
         ) from exc
 
+@router.patch(
+    "/{conversation_id}",
+    response_model=(
+        ConversationResponse
+    ),
+)
+def rename_existing_conversation(
+    conversation_id: str,
+    request: RenameConversationRequest,
+):
+    conversation = (
+        rename_conversation(
+            conversation_id=(
+                conversation_id
+            ),
+            title=request.title,
+        )
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "La conversación "
+                "no existe."
+            ),
+        )
+
+    return conversation
+
 @router.delete(
     "/{conversation_id}",
     status_code=204,
 )
 def remove_conversation(
     conversation_id: str,
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
+
+    conversation = get_user_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user.sub,
+    )
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "La conversación no existe."
+            ),
+        )
+    
     deleted = delete_conversation(
         conversation_id=conversation_id
     )
