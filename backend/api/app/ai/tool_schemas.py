@@ -149,13 +149,141 @@ TOOLS = [
                         "Empresa a la que pertenece el contacto. "
                         "Usar null si no está disponible."
                     )
+                },
+                "empresa_id": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": (
+                        "ID real de la empresa "
+                        "en HubSpot obtenido "
+                        "previamente mediante "
+                        "registrar_empresa_en_hubspot. "
+                        "Nunca inventarlo."
+                    )
                 }
             },
             "required": [
                 "nombre",
                 "apellido",
                 "email",
-                "empresa"
+                "empresa",
+                "empresa_id"
+            ],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+
+        {
+        "type": "function",
+        "name": "registrar_empresa_en_hubspot",
+        "description": (
+            "Crea o actualiza una empresa en HubSpot CRM. "
+            "Utilizar cuando se identifique una empresa "
+            "relacionada con un cliente o prospecto."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nombre": {
+                    "type": "string",
+                    "description": (
+                        "Nombre oficial o comercial "
+                        "de la empresa."
+                    )
+                },
+                "dominio": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": (
+                        "Dominio web de la empresa, "
+                        "por ejemplo techcorp.com. "
+                        "Usar null si no se conoce."
+                    )
+                },
+                "sitio_web": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": (
+                        "URL del sitio web de la empresa. "
+                        "Usar null si no fue proporcionada."
+                    )
+                }
+            },
+            "required": [
+                "nombre",
+                "dominio",
+                "sitio_web"
+            ],
+            "additionalProperties": False
+        },
+        "strict": True
+    },
+
+    {
+        "type": "function",
+        "name": "crear_oportunidad_en_hubspot",
+        "description": (
+            "Crea una oportunidad comercial en HubSpot CRM "
+            "cuando existe una intención comercial clara, "
+            "como un proyecto, propuesta, negociación "
+            "o intención de compra."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nombre": {
+                    "type": "string",
+                    "description": (
+                        "Nombre claro y descriptivo "
+                        "de la oportunidad comercial."
+                    )
+                },
+                "monto": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "description": (
+                        "Valor monetario de la oportunidad. "
+                        "Usar null si el usuario no indicó "
+                        "un monto."
+                    )
+                },
+                "contacto_id": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": (
+                        "ID real del contacto en HubSpot "
+                        "obtenido previamente mediante una "
+                        "herramienta. Nunca inventarlo."
+                    )
+                },
+                "empresa_id": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": (
+                        "ID real de la empresa en HubSpot "
+                        "obtenido previamente mediante una "
+                        "herramienta. Nunca inventarlo."
+                    )
+                }
+            },
+            "required": [
+                "nombre",
+                "monto",
+                "contacto_id",
+                "empresa_id"
             ],
             "additionalProperties": False
         },
