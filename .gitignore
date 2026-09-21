@@ -51,3 +51,14 @@ requisitos-techcorp.txt
 extract-response.json
 ana-upload-response.json
 caso-ana-techcorp.txt
+
+# =========================
+# Local AWS infrastructure files
+# =========================
+/cloudfront-api.json
+/ecs-service.json
+/ecs-task-definition.json
+/ecs-task-policy.json
+/ecs-task-trust-policy.json
+/github-actions-deploy-policy.json
+/github-actions-trust-policy.json
