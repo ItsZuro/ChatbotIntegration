@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     openai_model: str = "gpt-5.6-luna"
     openai_reasoning_effort: str = "low"
+    openai_max_output_tokens: int = 1200
     openai_transcription_model: str = "gpt-transcribe"
     openai_realtime_transcription_model: str = (
         "gpt-live-transcribe"

@@ -31,7 +31,7 @@ class UsageLimitExceeded(
 
 
 def _build_update(
-    user_id: str,
+    partition_key: str,
     resource: str,
     window: str,
     bucket: str,
@@ -45,15 +45,14 @@ def _build_update(
 
             "Key": {
                 "pk": {
-                    "S":
-                        f"USER#{user_id}"
+                    "S": partition_key,
                 },
                 "sk": {
                     "S": (
                         f"USAGE#{resource}"
                         f"#{window}"
                         f"#{bucket}"
-                    )
+                    ),
                 },
             },
 
@@ -77,18 +76,18 @@ def _build_update(
 
             "ExpressionAttributeValues": {
                 ":zero": {
-                    "N": "0"
+                    "N": "0",
                 },
                 ":one": {
-                    "N": "1"
+                    "N": "1",
                 },
                 ":limit": {
-                    "N": str(limit)
+                    "N": str(limit),
                 },
                 ":expires_at": {
                     "N": str(
                         expires_at
-                    )
+                    ),
                 },
             },
         }
@@ -100,6 +99,7 @@ def consume_request_quota(
     resource: str,
     minute_limit: int,
     daily_limit: int,
+    global_daily_limit: int,
 ) -> None:
     timezone = ZoneInfo(
         settings.usage_time_zone
@@ -109,16 +109,12 @@ def consume_request_quota(
         timezone
     )
 
-    minute_bucket = (
-        now.strftime(
-            "%Y-%m-%dT%H:%M"
-        )
+    minute_bucket = now.strftime(
+        "%Y-%m-%dT%H:%M"
     )
 
-    day_bucket = (
-        now.strftime(
-            "%Y-%m-%d"
-        )
+    day_bucket = now.strftime(
+        "%Y-%m-%d"
     )
 
     expires_at = int(
@@ -131,29 +127,46 @@ def consume_request_quota(
     )
 
     transaction_items = [
+        # 1. Límite por usuario / minuto
         _build_update(
-            user_id=user_id,
+            partition_key=(
+                f"USER#{user_id}"
+            ),
             resource=resource,
             window="MINUTE",
             bucket=minute_bucket,
             limit=minute_limit,
             expires_at=expires_at,
         ),
+
+        # 2. Límite por usuario / día
         _build_update(
-            user_id=user_id,
+            partition_key=(
+                f"USER#{user_id}"
+            ),
             resource=resource,
             window="DAY",
             bucket=day_bucket,
             limit=daily_limit,
             expires_at=expires_at,
         ),
+
+        # 3. Límite global / día
+        _build_update(
+            partition_key=(
+                "GLOBAL#OPENAI"
+            ),
+            resource=resource,
+            window="DAY",
+            bucket=day_bucket,
+            limit=global_daily_limit,
+            expires_at=expires_at,
+        ),
     ]
 
     try:
         dynamodb_client.transact_write_items(
-            TransactItems=(
-                transaction_items
-            )
+            TransactItems=transaction_items
         )
 
     except ClientError as exc:
@@ -193,10 +206,20 @@ def consume_request_quota(
                 == "ConditionalCheckFailed"
             )
 
-            # Si ambos están agotados,
-            # mostramos primero el diario,
-            # porque esperar un minuto
-            # no solucionaría nada.
+            global_exceeded = (
+                len(cancellation_reasons) > 2
+                and cancellation_reasons[2]
+                .get("Code")
+                == "ConditionalCheckFailed"
+            )
+
+            if global_exceeded:
+                raise UsageLimitExceeded(
+                    "El límite diario global "
+                    "del servicio fue alcanzado. "
+                    "Inténtalo nuevamente mañana."
+                ) from exc
+
             if daily_exceeded:
                 raise UsageLimitExceeded(
                     "Has alcanzado tu "
@@ -218,6 +241,7 @@ def consume_request_quota(
 
         raise
 
+
 def _get_usage_count(
     user_id: str,
     resource: str,
@@ -228,14 +252,14 @@ def _get_usage_count(
         TableName=settings.usage_table_name,
         Key={
             "pk": {
-                "S": f"USER#{user_id}"
+                "S": f"USER#{user_id}",
             },
             "sk": {
                 "S": (
                     f"USAGE#{resource}"
                     f"#{window}"
                     f"#{bucket}"
-                )
+                ),
             },
         },
         ConsistentRead=True,

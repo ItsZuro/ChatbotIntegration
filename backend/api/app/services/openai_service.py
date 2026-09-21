@@ -25,6 +25,9 @@ def process_message(
         "instructions": SYSTEM_PROMPT,
         "tools": TOOLS,
         "input": user_message,
+        "max_output_tokens": (
+            settings.openai_max_output_tokens
+        ),
     }
 
     if previous_response_id:
