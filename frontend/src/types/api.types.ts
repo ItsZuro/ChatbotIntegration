@@ -51,3 +51,14 @@ export interface SendConversationMessageResponse {
   response: string;
   executed_tools: ExecutedTool[];
 }
+
+export interface TranscriptionResponse {
+  text: string;
+  model: string;
+}
+
+export interface RealtimeTranscriptionSessionResponse {
+  client_secret: string;
+  expires_at: number;
+  model: string;
+}
