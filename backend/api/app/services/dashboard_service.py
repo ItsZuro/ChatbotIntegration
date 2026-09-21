@@ -6,6 +6,7 @@ from app.services.audit_service import (
 from app.services.conversation_service import (
     list_conversations,
 )
+from boto3.dynamodb.conditions import Attr
 
 
 TOOL_INTEGRATIONS = {
@@ -17,10 +18,18 @@ TOOL_INTEGRATIONS = {
 }
 
 
-def _scan_all_audit_records() -> list[dict]:
+def _scan_user_audit_records(
+    user_id: str,
+) -> list[dict]:
     items: list[dict] = []
 
-    scan_kwargs = {}
+    scan_kwargs = {
+        "FilterExpression": (
+            Attr("user_id").eq(
+                user_id
+            )
+        ),
+    }
 
     while True:
         response = audit_table.scan(
@@ -329,10 +338,12 @@ def _build_recent_activity(
 
 
 def get_dashboard_summary(
-    user_id: str = "default",
+    user_id: str,
 ) -> dict:
     audit_records = (
-        _scan_all_audit_records()
+        _scan_user_audit_records(
+            user_id=user_id
+        )
     )
 
     total_requests = len(
@@ -416,10 +427,13 @@ def get_dashboard_summary(
     }
 
 def get_recent_activity(
+    user_id: str,
     limit: int = 50,
 ) -> list[dict]:
     audit_records = (
-        _scan_all_audit_records()
+        _scan_user_audit_records(
+            user_id=user_id
+        )
     )
 
     return _build_recent_activity(

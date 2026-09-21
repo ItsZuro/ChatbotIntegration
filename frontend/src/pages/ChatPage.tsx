@@ -50,6 +50,8 @@ import { deleteConversation } from "../services/conversations.service";
 
 import type { SendConversationMessageResponse } from "../types/api.types";
 
+import { isRateLimitError } from "../services/api";
+
 function buildConversationTitle(message: string) {
   const normalized = message.replace(/\s+/g, " ").trim();
 
@@ -187,7 +189,7 @@ export function ChatPage() {
       }
 
       setStage("idle");
-    } catch {
+    } catch (error) {
       setPendingUserMessage(null);
 
       setStage("idle");
@@ -201,11 +203,13 @@ export function ChatPage() {
         }
       }
 
-      notifications.show({
-        title: "No se pudo enviar el mensaje",
-        message: "Inténtalo nuevamente.",
-        color: "red",
-      });
+      if (!isRateLimitError(error)) {
+        notifications.show({
+          title: "No se pudo enviar el mensaje",
+          message: "Inténtalo nuevamente.",
+          color: "red",
+        });
+      }
     }
   };
 

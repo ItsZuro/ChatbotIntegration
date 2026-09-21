@@ -1,33 +1,18 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
-import {
-  createRealtimeTranscriptionSession,
-} from "../../../services/audio.service";
+import { createRealtimeTranscriptionSession } from "../../../services/audio.service";
 
-import type {
-  RealtimeTranscriptionSessionResponse,
-} from "../../../types/api.types";
+import { useQueryClient } from "@tanstack/react-query";
+import { isRateLimitError } from "../../../services/api";
+import type { RealtimeTranscriptionSessionResponse } from "../../../types/api.types";
 
-
-export type VoiceState =
-  | "idle"
-  | "recording"
-  | "transcribing";
-
+export type VoiceState = "idle" | "recording" | "transcribing";
 
 interface UseVoiceRecorderOptions {
-  onTranscription: (
-    text: string
-  ) => void;
+  onTranscription: (text: string) => void;
 }
 
-
 const WAVEFORM_SIZE = 36;
-
 
 const createEmptyWaveform = () =>
   Array.from(
@@ -37,76 +22,32 @@ const createEmptyWaveform = () =>
     () => 0.08,
   );
 
-
-function isRecord(
-  value: unknown,
-): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null
-  );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-
-function getRealtimeErrorMessage(
-  event: Record<string, unknown>,
-) {
+function getRealtimeErrorMessage(event: Record<string, unknown>) {
   const error = event.error;
 
-  if (
-    isRecord(error) &&
-    typeof error.message === "string"
-  ) {
+  if (isRecord(error) && typeof error.message === "string") {
     return error.message;
   }
 
   return "La sesión de voz produjo un error.";
 }
 
+export function useVoiceRecorder({ onTranscription }: UseVoiceRecorderOptions) {
+  const [state, setState] = useState<VoiceState>("idle");
 
-export function useVoiceRecorder({
-  onTranscription,
-}: UseVoiceRecorderOptions) {
-  const [
-    state,
-    setState,
-  ] =
-    useState<VoiceState>(
-      "idle",
-    );
+  const queryClient = useQueryClient();
 
+  const [error, setError] = useState<string | null>(null);
 
-  const [
-    error,
-    setError,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  const [waveform, setWaveform] = useState<number[]>(createEmptyWaveform);
 
-  const [
-    elapsedSeconds,
-    setElapsedSeconds,
-  ] =
-    useState(0);
-
-
-  const [
-    waveform,
-    setWaveform,
-  ] =
-    useState<number[]>(
-      createEmptyWaveform,
-    );
-
-
-  const [
-    liveTranscript,
-    setLiveTranscript,
-  ] =
-    useState("");
-
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   /*
    * ============================
@@ -114,27 +55,13 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const peerConnectionRef =
-    useRef<RTCPeerConnection | null>(
-      null,
-    );
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
 
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
-  const dataChannelRef =
-    useRef<RTCDataChannel | null>(
-      null,
-    );
+  const audioSenderRef = useRef<RTCRtpSender | null>(null);
 
-
-  const audioSenderRef =
-    useRef<RTCRtpSender | null>(
-      null,
-    );
-
-
-  const realtimeReadyRef =
-    useRef(false);
-
+  const realtimeReadyRef = useRef(false);
 
   /*
    * Precargamos ÚNICAMENTE
@@ -143,17 +70,10 @@ export function useVoiceRecorder({
    * No creamos WebRTC sin
    * una pista real.
    */
-  const sessionRef =
-    useRef<RealtimeTranscriptionSessionResponse | null>(
-      null,
-    );
-
+  const sessionRef = useRef<RealtimeTranscriptionSessionResponse | null>(null);
 
   const sessionPromiseRef =
-    useRef<Promise<RealtimeTranscriptionSessionResponse> | null>(
-      null,
-    );
-
+    useRef<Promise<RealtimeTranscriptionSessionResponse> | null>(null);
 
   /*
    * ============================
@@ -161,17 +81,9 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const streamRef =
-    useRef<MediaStream | null>(
-      null,
-    );
+  const streamRef = useRef<MediaStream | null>(null);
 
-
-  const audioTrackRef =
-    useRef<MediaStreamTrack | null>(
-      null,
-    );
-
+  const audioTrackRef = useRef<MediaStreamTrack | null>(null);
 
   /*
    * ============================
@@ -179,21 +91,11 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const audioContextRef =
-    useRef<AudioContext | null>(
-      null,
-    );
+  const audioContextRef = useRef<AudioContext | null>(null);
 
+  const animationFrameRef = useRef<number | null>(null);
 
-  const animationFrameRef =
-    useRef<number | null>(
-      null,
-    );
-
-
-  const lastWaveformUpdateRef =
-    useRef(0);
-
+  const lastWaveformUpdateRef = useRef(0);
 
   /*
    * ============================
@@ -201,19 +103,9 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const timerRef =
-    useRef<
-      ReturnType<
-        typeof setInterval
-      > | null
-    >(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-
-  const recordingStartedAtRef =
-    useRef<number | null>(
-      null,
-    );
-
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   /*
    * ============================
@@ -221,31 +113,17 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const partialTranscriptRef =
-    useRef("");
+  const partialTranscriptRef = useRef("");
 
+  const finalizationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  const finalizationTimeoutRef =
-    useRef<
-      ReturnType<
-        typeof setTimeout
-      > | null
-    >(null);
-
-
-  const onTranscriptionRef =
-    useRef(
-      onTranscription,
-    );
-
+  const onTranscriptionRef = useRef(onTranscription);
 
   useEffect(() => {
-    onTranscriptionRef.current =
-      onTranscription;
-  }, [
-    onTranscription,
-  ]);
-
+    onTranscriptionRef.current = onTranscription;
+  }, [onTranscription]);
 
   /*
    * ============================
@@ -253,68 +131,43 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const getRealtimeSession =
-    async () => {
-      const cached =
-        sessionRef.current;
+  const getRealtimeSession = async () => {
+    const cached = sessionRef.current;
 
+    const now = Math.floor(Date.now() / 1000);
 
-      const now =
-        Math.floor(
-          Date.now() / 1000,
-        );
+    /*
+     * Dejamos 10 s de margen
+     * antes de que expire.
+     */
+    if (cached && cached.expires_at > now + 10) {
+      return cached;
+    }
 
+    if (sessionPromiseRef.current) {
+      return sessionPromiseRef.current;
+    }
 
-      /*
-       * Dejamos 10 s de margen
-       * antes de que expire.
-       */
-      if (
-        cached &&
-        cached.expires_at >
-          now + 10
-      ) {
-        return cached;
+    const promise = createRealtimeTranscriptionSession();
+
+    sessionPromiseRef.current = promise;
+
+    try {
+      const session = await promise;
+
+      sessionRef.current = session;
+
+      await queryClient.invalidateQueries({
+        queryKey: ["usage"],
+      });
+
+      return session;
+    } finally {
+      if (sessionPromiseRef.current === promise) {
+        sessionPromiseRef.current = null;
       }
-
-
-      if (
-        sessionPromiseRef.current
-      ) {
-        return sessionPromiseRef
-          .current;
-      }
-
-
-      const promise =
-        createRealtimeTranscriptionSession();
-
-
-      sessionPromiseRef.current =
-        promise;
-
-
-      try {
-        const session =
-          await promise;
-
-
-        sessionRef.current =
-          session;
-
-
-        return session;
-      } finally {
-        if (
-          sessionPromiseRef.current ===
-          promise
-        ) {
-          sessionPromiseRef.current =
-            null;
-        }
-      }
-    };
-
+    }
+  };
 
   /*
    * ============================
@@ -323,64 +176,32 @@ export function useVoiceRecorder({
    */
 
   const stopTimer = () => {
-    if (
-      timerRef.current
-    ) {
-      clearInterval(
-        timerRef.current,
-      );
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
 
-      timerRef.current =
-        null;
+      timerRef.current = null;
     }
 
-
-    recordingStartedAtRef.current =
-      null;
+    recordingStartedAtRef.current = null;
   };
-
 
   const startTimer = () => {
     stopTimer();
 
+    setElapsedSeconds(0);
 
-    setElapsedSeconds(
-      0,
-    );
+    recordingStartedAtRef.current = Date.now();
 
+    timerRef.current = setInterval(() => {
+      const startedAt = recordingStartedAtRef.current;
 
-    recordingStartedAtRef.current =
-      Date.now();
+      if (!startedAt) {
+        return;
+      }
 
-
-    timerRef.current =
-      setInterval(
-        () => {
-          const startedAt =
-            recordingStartedAtRef
-              .current;
-
-
-          if (
-            !startedAt
-          ) {
-            return;
-          }
-
-
-          setElapsedSeconds(
-            Math.floor(
-              (
-                Date.now() -
-                startedAt
-              ) / 1000,
-            ),
-          );
-        },
-        250,
-      );
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 250);
   };
-
 
   /*
    * ============================
@@ -388,175 +209,69 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const stopVisualization =
-    () => {
-      if (
-        animationFrameRef.current !==
-        null
-      ) {
-        cancelAnimationFrame(
-          animationFrameRef.current,
-        );
+  const stopVisualization = () => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
 
-        animationFrameRef.current =
-          null;
-      }
+      animationFrameRef.current = null;
+    }
 
+    const audioContext = audioContextRef.current;
 
-      const audioContext =
-        audioContextRef.current;
+    audioContextRef.current = null;
 
+    if (audioContext && audioContext.state !== "closed") {
+      void audioContext.close();
+    }
 
-      audioContextRef.current =
-        null;
-
-
-      if (
-        audioContext &&
-        audioContext.state !==
-          "closed"
-      ) {
-        void audioContext.close();
-      }
-
-
-      setWaveform(
-        createEmptyWaveform(),
-      );
-    };
-
-
-  const startVisualization = (
-    stream: MediaStream,
-  ) => {
-    stopVisualization();
-
-
-    const audioContext =
-      new AudioContext();
-
-
-    const source =
-      audioContext
-        .createMediaStreamSource(
-          stream,
-        );
-
-
-    const analyser =
-      audioContext
-        .createAnalyser();
-
-
-    analyser.fftSize =
-      512;
-
-
-    analyser.smoothingTimeConstant =
-      0.7;
-
-
-    source.connect(
-      analyser,
-    );
-
-
-    audioContextRef.current =
-      audioContext;
-
-
-    const samples =
-      new Uint8Array(
-        analyser.fftSize,
-      );
-
-
-    const updateWaveform = (
-      timestamp: number,
-    ) => {
-      if (
-        timestamp -
-          lastWaveformUpdateRef
-            .current >=
-        50
-      ) {
-        analyser
-          .getByteTimeDomainData(
-            samples,
-          );
-
-
-        let sumSquares =
-          0;
-
-
-        for (
-          let index = 0;
-          index <
-          samples.length;
-          index += 1
-        ) {
-          const normalized =
-            (
-              samples[index] -
-              128
-            ) / 128;
-
-
-          sumSquares +=
-            normalized *
-            normalized;
-        }
-
-
-        const rms =
-          Math.sqrt(
-            sumSquares /
-              samples.length,
-          );
-
-
-        const level =
-          Math.min(
-            1,
-            Math.max(
-              0.08,
-              rms * 6,
-            ),
-          );
-
-
-        setWaveform(
-          (
-            current,
-          ) => [
-            ...current.slice(
-              1,
-            ),
-
-            level,
-          ],
-        );
-
-
-        lastWaveformUpdateRef.current =
-          timestamp;
-      }
-
-
-      animationFrameRef.current =
-        requestAnimationFrame(
-          updateWaveform,
-        );
-    };
-
-
-    animationFrameRef.current =
-      requestAnimationFrame(
-        updateWaveform,
-      );
+    setWaveform(createEmptyWaveform());
   };
 
+  const startVisualization = (stream: MediaStream) => {
+    stopVisualization();
+
+    const audioContext = new AudioContext();
+
+    const source = audioContext.createMediaStreamSource(stream);
+
+    const analyser = audioContext.createAnalyser();
+
+    analyser.fftSize = 512;
+
+    analyser.smoothingTimeConstant = 0.7;
+
+    source.connect(analyser);
+
+    audioContextRef.current = audioContext;
+
+    const samples = new Uint8Array(analyser.fftSize);
+
+    const updateWaveform = (timestamp: number) => {
+      if (timestamp - lastWaveformUpdateRef.current >= 50) {
+        analyser.getByteTimeDomainData(samples);
+
+        let sumSquares = 0;
+
+        for (let index = 0; index < samples.length; index += 1) {
+          const normalized = (samples[index] - 128) / 128;
+
+          sumSquares += normalized * normalized;
+        }
+
+        const rms = Math.sqrt(sumSquares / samples.length);
+
+        const level = Math.min(1, Math.max(0.08, rms * 6));
+
+        setWaveform((current) => [...current.slice(1), level]);
+
+        lastWaveformUpdateRef.current = timestamp;
+      }
+
+      animationFrameRef.current = requestAnimationFrame(updateWaveform);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateWaveform);
+  };
 
   /*
    * ============================
@@ -564,41 +279,23 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const stopLocalMicrophone =
-    () => {
-      stopTimer();
+  const stopLocalMicrophone = () => {
+    stopTimer();
 
-      stopVisualization();
+    stopVisualization();
 
+    audioTrackRef.current?.stop();
 
-      audioTrackRef.current
-        ?.stop();
+    audioTrackRef.current = null;
 
+    streamRef.current?.getTracks().forEach((track) => {
+      track.stop();
+    });
 
-      audioTrackRef.current =
-        null;
+    streamRef.current = null;
 
-
-      streamRef.current
-        ?.getTracks()
-        .forEach(
-          (
-            track,
-          ) => {
-            track.stop();
-          },
-        );
-
-
-      streamRef.current =
-        null;
-
-
-      setElapsedSeconds(
-        0,
-      );
-    };
-
+    setElapsedSeconds(0);
+  };
 
   /*
    * ============================
@@ -606,129 +303,60 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const closeRealtimeConnection =
-    () => {
-      realtimeReadyRef.current =
-        false;
+  const closeRealtimeConnection = () => {
+    realtimeReadyRef.current = false;
 
+    dataChannelRef.current?.close();
 
-      dataChannelRef.current
-        ?.close();
+    dataChannelRef.current = null;
 
+    peerConnectionRef.current?.close();
 
-      dataChannelRef.current =
-        null;
+    peerConnectionRef.current = null;
 
+    audioSenderRef.current = null;
+  };
 
-      peerConnectionRef.current
-        ?.close();
+  const waitForDataChannelOpen = (dataChannel: RTCDataChannel) =>
+    new Promise<void>((resolve, reject) => {
+      if (dataChannel.readyState === "open") {
+        resolve();
 
+        return;
+      }
 
-      peerConnectionRef.current =
-        null;
+      const handleOpen = () => {
+        cleanup();
 
+        resolve();
+      };
 
-      audioSenderRef.current =
-        null;
-    };
+      const handleError = () => {
+        cleanup();
 
+        reject(new Error("No se pudo abrir el canal de datos."));
+      };
 
-  const waitForDataChannelOpen = (
-    dataChannel: RTCDataChannel,
-  ) =>
-    new Promise<void>(
-      (
-        resolve,
-        reject,
-      ) => {
-        if (
-          dataChannel.readyState ===
-          "open"
-        ) {
-          resolve();
+      const handleClose = () => {
+        cleanup();
 
-          return;
-        }
+        reject(new Error("El canal de datos se cerró."));
+      };
 
+      const cleanup = () => {
+        dataChannel.removeEventListener("open", handleOpen);
 
-        const handleOpen =
-          () => {
-            cleanup();
+        dataChannel.removeEventListener("error", handleError);
 
-            resolve();
-          };
+        dataChannel.removeEventListener("close", handleClose);
+      };
 
+      dataChannel.addEventListener("open", handleOpen);
 
-        const handleError =
-          () => {
-            cleanup();
+      dataChannel.addEventListener("error", handleError);
 
-            reject(
-              new Error(
-                "No se pudo abrir el canal de datos.",
-              ),
-            );
-          };
-
-
-        const handleClose =
-          () => {
-            cleanup();
-
-            reject(
-              new Error(
-                "El canal de datos se cerró.",
-              ),
-            );
-          };
-
-
-        const cleanup =
-          () => {
-            dataChannel
-              .removeEventListener(
-                "open",
-                handleOpen,
-              );
-
-
-            dataChannel
-              .removeEventListener(
-                "error",
-                handleError,
-              );
-
-
-            dataChannel
-              .removeEventListener(
-                "close",
-                handleClose,
-              );
-          };
-
-
-        dataChannel
-          .addEventListener(
-            "open",
-            handleOpen,
-          );
-
-
-        dataChannel
-          .addEventListener(
-            "error",
-            handleError,
-          );
-
-
-        dataChannel
-          .addEventListener(
-            "close",
-            handleClose,
-          );
-      },
-    );
-
+      dataChannel.addEventListener("close", handleClose);
+    });
 
   /*
    * ============================
@@ -736,90 +364,45 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const clearFinalizationTimeout =
-    () => {
-      if (
-        finalizationTimeoutRef
-          .current
-      ) {
-        clearTimeout(
-          finalizationTimeoutRef
-            .current,
-        );
+  const clearFinalizationTimeout = () => {
+    if (finalizationTimeoutRef.current) {
+      clearTimeout(finalizationTimeoutRef.current);
 
-
-        finalizationTimeoutRef.current =
-          null;
-      }
-    };
-
-
-  const finishSuccessfully = (
-    transcript: string,
-  ) => {
-    const cleanText =
-      transcript.trim();
-
-
-    clearFinalizationTimeout();
-
-
-    stopLocalMicrophone();
-
-
-    partialTranscriptRef.current =
-      "";
-
-
-    setLiveTranscript(
-      "",
-    );
-
-
-    setState(
-      "idle",
-    );
-
-
-    if (
-      cleanText
-    ) {
-      onTranscriptionRef
-        .current(
-          cleanText,
-        );
+      finalizationTimeoutRef.current = null;
     }
   };
 
+  const finishSuccessfully = (transcript: string) => {
+    const cleanText = transcript.trim();
 
-  const failRecording = (
-    message: string,
-  ) => {
     clearFinalizationTimeout();
-
 
     stopLocalMicrophone();
 
+    partialTranscriptRef.current = "";
 
-    partialTranscriptRef.current =
-      "";
+    setLiveTranscript("");
 
+    setState("idle");
 
-    setLiveTranscript(
-      "",
-    );
-
-
-    setError(
-      message,
-    );
-
-
-    setState(
-      "idle",
-    );
+    if (cleanText) {
+      onTranscriptionRef.current(cleanText);
+    }
   };
 
+  const failRecording = (message: string) => {
+    clearFinalizationTimeout();
+
+    stopLocalMicrophone();
+
+    partialTranscriptRef.current = "";
+
+    setLiveTranscript("");
+
+    setError(message);
+
+    setState("idle");
+  };
 
   /*
    * ============================
@@ -827,115 +410,58 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const handleRealtimeEvent = (
-    rawData: string,
-  ) => {
-    let parsed:
-      unknown;
-
+  const handleRealtimeEvent = (rawData: string) => {
+    let parsed: unknown;
 
     try {
-      parsed =
-        JSON.parse(
-          rawData,
-        );
+      parsed = JSON.parse(rawData);
     } catch {
       return;
     }
 
-
-    if (
-      !isRecord(
-        parsed,
-      )
-    ) {
+    if (!isRecord(parsed)) {
       return;
     }
 
-
-    const event =
-      parsed;
-
+    const event = parsed;
 
     /*
      * Temporalmente lo dejamos
      * para diagnosticar Realtime.
      */
-    console.debug(
-      "[OpenAI Realtime]",
-      event.type,
-      event,
-    );
+    console.debug("[OpenAI Realtime]", event.type, event);
 
+    if (event.type === "conversation.item.input_audio_transcription.delta") {
+      const delta = typeof event.delta === "string" ? event.delta : "";
 
-    if (
-      event.type ===
-      "conversation.item.input_audio_transcription.delta"
-    ) {
-      const delta =
-        typeof event.delta ===
-        "string"
-          ? event.delta
-          : "";
+      partialTranscriptRef.current += delta;
 
-
-      partialTranscriptRef.current +=
-        delta;
-
-
-      setLiveTranscript(
-        partialTranscriptRef
-          .current,
-      );
-
+      setLiveTranscript(partialTranscriptRef.current);
 
       return;
     }
 
-
     if (
-      event.type ===
-      "conversation.item.input_audio_transcription.completed"
+      event.type === "conversation.item.input_audio_transcription.completed"
     ) {
       const transcript =
-        typeof event.transcript ===
-        "string"
+        typeof event.transcript === "string"
           ? event.transcript
-          : partialTranscriptRef
-              .current;
+          : partialTranscriptRef.current;
 
-
-      finishSuccessfully(
-        transcript,
-      );
-
+      finishSuccessfully(transcript);
 
       return;
     }
 
+    if (event.type === "error") {
+      const message = getRealtimeErrorMessage(event);
 
-    if (
-      event.type ===
-      "error"
-    ) {
-      const message =
-        getRealtimeErrorMessage(
-          event,
-        );
+      console.error("OpenAI Realtime error:", event);
 
-
-      console.error(
-        "OpenAI Realtime error:",
-        event,
-      );
-
-
-      failRecording(
-        message,
-      );
+      failRecording(message);
     }
   };
-
 
   /*
    * ============================
@@ -950,33 +476,19 @@ export function useVoiceRecorder({
     stream: MediaStream,
     audioTrack: MediaStreamTrack,
   ) => {
-    const session =
-      await getRealtimeSession();
+    const session = await getRealtimeSession();
 
+    const peerConnection = new RTCPeerConnection();
 
-    const peerConnection =
-      new RTCPeerConnection();
-
-
-    peerConnectionRef.current =
-      peerConnection;
-
+    peerConnectionRef.current = peerConnection;
 
     /*
      * La pista real forma parte
      * de la negociación SDP.
      */
-    const sender =
-      peerConnection
-        .addTrack(
-          audioTrack,
-          stream,
-        );
+    const sender = peerConnection.addTrack(audioTrack, stream);
 
-
-    audioSenderRef.current =
-      sender;
-
+    audioSenderRef.current = sender;
 
     /*
      * Todavía no enviamos voz.
@@ -984,172 +496,85 @@ export function useVoiceRecorder({
      * pero permanece silenciada
      * hasta abrir el canal.
      */
-    audioTrack.enabled =
-      false;
+    audioTrack.enabled = false;
 
+    const dataChannel = peerConnection.createDataChannel("oai-events");
 
-    const dataChannel =
-      peerConnection
-        .createDataChannel(
-          "oai-events",
-        );
+    dataChannelRef.current = dataChannel;
 
+    dataChannel.onmessage = (messageEvent) => {
+      if (typeof messageEvent.data === "string") {
+        handleRealtimeEvent(messageEvent.data);
+      }
+    };
 
-    dataChannelRef.current =
-      dataChannel;
+    dataChannel.onerror = (event) => {
+      console.error("Realtime data channel error:", event);
+    };
 
+    dataChannel.onclose = () => {
+      realtimeReadyRef.current = false;
+    };
 
-    dataChannel.onmessage =
-      (
-        messageEvent,
-      ) => {
-        if (
-          typeof messageEvent
-            .data ===
-          "string"
-        ) {
-          handleRealtimeEvent(
-            messageEvent.data,
-          );
-        }
-      };
+    peerConnection.onconnectionstatechange = () => {
+      const connectionState = peerConnection.connectionState;
 
+      console.debug("[WebRTC]", connectionState);
 
-    dataChannel.onerror =
-      (
-        event,
-      ) => {
-        console.error(
-          "Realtime data channel error:",
-          event,
-        );
-      };
+      if (
+        connectionState === "failed" ||
+        connectionState === "closed" ||
+        connectionState === "disconnected"
+      ) {
+        realtimeReadyRef.current = false;
+      }
+    };
 
+    const waitForOpen = waitForDataChannelOpen(dataChannel);
 
-    dataChannel.onclose =
-      () => {
-        realtimeReadyRef.current =
-          false;
-      };
+    const offer = await peerConnection.createOffer();
 
+    await peerConnection.setLocalDescription(offer);
 
-    peerConnection
-      .onconnectionstatechange =
-      () => {
-        const connectionState =
-          peerConnection
-            .connectionState;
-
-
-        console.debug(
-          "[WebRTC]",
-          connectionState,
-        );
-
-
-        if (
-          connectionState ===
-            "failed" ||
-          connectionState ===
-            "closed" ||
-          connectionState ===
-            "disconnected"
-        ) {
-          realtimeReadyRef.current =
-            false;
-        }
-      };
-
-
-    const waitForOpen =
-      waitForDataChannelOpen(
-        dataChannel,
-      );
-
-
-    const offer =
-      await peerConnection
-        .createOffer();
-
-
-    await peerConnection
-      .setLocalDescription(
-        offer,
-      );
-
-
-    if (
-      !offer.sdp
-    ) {
-      throw new Error(
-        "No se pudo crear la oferta WebRTC.",
-      );
+    if (!offer.sdp) {
+      throw new Error("No se pudo crear la oferta WebRTC.");
     }
 
+    const sdpResponse = await fetch(
+      "https://api.openai.com/v1/realtime/calls",
+      {
+        method: "POST",
 
-    const sdpResponse =
-      await fetch(
-        "https://api.openai.com/v1/realtime/calls",
-        {
-          method:
-            "POST",
+        headers: {
+          Authorization: `Bearer ${session.client_secret}`,
 
-          headers: {
-            Authorization:
-              `Bearer ${session.client_secret}`,
-
-            "Content-Type":
-              "application/sdp",
-          },
-
-          body:
-            offer.sdp,
+          "Content-Type": "application/sdp",
         },
-      );
 
+        body: offer.sdp,
+      },
+    );
 
-    if (
-      !sdpResponse.ok
-    ) {
-      const details =
-        await sdpResponse
-          .text();
+    if (!sdpResponse.ok) {
+      const details = await sdpResponse.text();
 
+      console.error("Realtime SDP error:", details);
 
-      console.error(
-        "Realtime SDP error:",
-        details,
-      );
-
-
-      throw new Error(
-        "OpenAI rechazó la conexión WebRTC.",
-      );
+      throw new Error("OpenAI rechazó la conexión WebRTC.");
     }
 
+    const answerSdp = await sdpResponse.text();
 
-    const answerSdp =
-      await sdpResponse
-        .text();
+    await peerConnection.setRemoteDescription({
+      type: "answer",
 
-
-    await peerConnection
-      .setRemoteDescription({
-        type:
-          "answer",
-
-        sdp:
-          answerSdp,
-      });
-
+      sdp: answerSdp,
+    });
 
     await waitForOpen;
 
-
-    realtimeReadyRef.current =
-      true;
+    realtimeReadyRef.current = true;
   };
-
 
   /*
    * ============================
@@ -1157,217 +582,127 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const startRecording =
-    async () => {
-      if (
-        state !==
-        "idle"
-      ) {
-        return;
+  const startRecording = async () => {
+    if (state !== "idle") {
+      return;
+    }
+
+    setError(null);
+
+    setLiveTranscript("");
+
+    partialTranscriptRef.current = "";
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+
+          noiseSuppression: true,
+
+          autoGainControl: true,
+
+          channelCount: 1,
+        },
+      });
+
+      streamRef.current = stream;
+
+      const audioTrack = stream.getAudioTracks()[0];
+
+      if (!audioTrack) {
+        throw new Error("No se encontró una pista de audio.");
       }
 
+      audioTrackRef.current = audioTrack;
 
-      setError(
-        null,
-      );
+      const dataChannel = dataChannelRef.current;
 
+      /*
+       * Si ya tenemos una sesión
+       * WebRTC real negociada desde
+       * una grabación anterior,
+       * simplemente cambiamos la pista.
+       */
+      if (
+        realtimeReadyRef.current &&
+        dataChannel &&
+        dataChannel.readyState === "open" &&
+        audioSenderRef.current
+      ) {
+        audioTrack.enabled = false;
 
-      setLiveTranscript(
-        "",
-      );
-
-
-      partialTranscriptRef.current =
-        "";
-
-
-      try {
-        const stream =
-          await navigator
-            .mediaDevices
-            .getUserMedia({
-              audio: {
-                echoCancellation:
-                  true,
-
-                noiseSuppression:
-                  true,
-
-                autoGainControl:
-                  true,
-
-                channelCount:
-                  1,
-              },
-            });
-
-
-        streamRef.current =
-          stream;
-
-
-        const audioTrack =
-          stream
-            .getAudioTracks()[0];
-
-
-        if (
-          !audioTrack
-        ) {
-          throw new Error(
-            "No se encontró una pista de audio.",
-          );
-        }
-
-
-        audioTrackRef.current =
-          audioTrack;
-
-
-        const dataChannel =
-          dataChannelRef.current;
-
-
-        /*
-         * Si ya tenemos una sesión
-         * WebRTC real negociada desde
-         * una grabación anterior,
-         * simplemente cambiamos la pista.
-         */
-        if (
-          realtimeReadyRef.current &&
-          dataChannel &&
-          dataChannel.readyState ===
-            "open" &&
-          audioSenderRef.current
-        ) {
-          audioTrack.enabled =
-            false;
-
-
-          dataChannel.send(
-            JSON.stringify({
-              type:
-                "input_audio_buffer.clear",
-            }),
-          );
-
-
-          await audioSenderRef
-            .current
-            .replaceTrack(
-              audioTrack,
-            );
-
-
-          audioTrack.enabled =
-            true;
-
-
-          startTimer();
-
-
-          startVisualization(
-            stream,
-          );
-
-
-          setState(
-            "recording",
-          );
-
-
-          return;
-        }
-
-
-        /*
-         * Primera grabación:
-         * negociamos WebRTC CON
-         * la pista real.
-         */
-        closeRealtimeConnection();
-
-
-        await connectRealtime(
-          stream,
-          audioTrack,
-        );
-
-
-        const connectedDataChannel =
-          dataChannelRef.current;
-
-
-        if (
-          !connectedDataChannel ||
-          connectedDataChannel
-            .readyState !==
-            "open"
-        ) {
-          throw new Error(
-            "El canal Realtime no quedó disponible.",
-          );
-        }
-
-
-        /*
-         * Limpiamos cualquier silencio
-         * acumulado durante el handshake.
-         */
-        connectedDataChannel.send(
+        dataChannel.send(
           JSON.stringify({
-            type:
-              "input_audio_buffer.clear",
+            type: "input_audio_buffer.clear",
           }),
         );
 
+        await audioSenderRef.current.replaceTrack(audioTrack);
 
-        /*
-         * DESDE AQUÍ sí estamos
-         * realmente escuchando.
-         */
-        audioTrack.enabled =
-          true;
-
+        audioTrack.enabled = true;
 
         startTimer();
 
+        startVisualization(stream);
 
-        startVisualization(
-          stream,
-        );
+        setState("recording");
 
-
-        setState(
-          "recording",
-        );
-      } catch (
-        exception
-      ) {
-        console.error(
-          "Realtime voice start error:",
-          exception,
-        );
-
-
-        stopLocalMicrophone();
-
-
-        closeRealtimeConnection();
-
-
-        setError(
-          "No se pudo iniciar la transcripción en tiempo real.",
-        );
-
-
-        setState(
-          "idle",
-        );
+        return;
       }
-    };
 
+      /*
+       * Primera grabación:
+       * negociamos WebRTC CON
+       * la pista real.
+       */
+      closeRealtimeConnection();
+
+      await connectRealtime(stream, audioTrack);
+
+      const connectedDataChannel = dataChannelRef.current;
+
+      if (!connectedDataChannel || connectedDataChannel.readyState !== "open") {
+        throw new Error("El canal Realtime no quedó disponible.");
+      }
+
+      /*
+       * Limpiamos cualquier silencio
+       * acumulado durante el handshake.
+       */
+      connectedDataChannel.send(
+        JSON.stringify({
+          type: "input_audio_buffer.clear",
+        }),
+      );
+
+      /*
+       * DESDE AQUÍ sí estamos
+       * realmente escuchando.
+       */
+      audioTrack.enabled = true;
+
+      startTimer();
+
+      startVisualization(stream);
+
+      setState("recording");
+    } catch (exception) {
+      console.error("Realtime voice start error:", exception);
+
+      stopLocalMicrophone();
+
+      closeRealtimeConnection();
+
+      if (isRateLimitError(exception)) {
+        setError(null);
+      } else {
+        setError("No se pudo iniciar la " + "transcripción en tiempo real.");
+      }
+
+      setState("idle");
+    }
+  };
 
   /*
    * ============================
@@ -1375,120 +710,65 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const stopRecording =
-    async () => {
-      if (
-        state !==
-        "recording"
-      ) {
-        return;
-      }
+  const stopRecording = async () => {
+    if (state !== "recording") {
+      return;
+    }
 
+    const dataChannel = dataChannelRef.current;
 
-      const dataChannel =
-        dataChannelRef.current;
+    const audioTrack = audioTrackRef.current;
 
+    /*
+     * Primero dejamos de enviar
+     * audio nuevo.
+     */
+    if (audioTrack) {
+      audioTrack.enabled = false;
+    }
 
-      const audioTrack =
-        audioTrackRef.current;
+    try {
+      await audioSenderRef.current?.replaceTrack(null);
+    } catch (exception) {
+      console.warn("No se pudo desacoplar la pista:", exception);
+    }
 
+    stopLocalMicrophone();
 
-      /*
-       * Primero dejamos de enviar
-       * audio nuevo.
-       */
-      if (
-        audioTrack
-      ) {
-        audioTrack.enabled =
-          false;
-      }
+    setState("transcribing");
 
+    if (!dataChannel || dataChannel.readyState !== "open") {
+      failRecording("Se perdió la conexión de voz.");
 
-      try {
-        await audioSenderRef
-          .current
-          ?.replaceTrack(
-            null,
-          );
-      } catch (
-        exception
-      ) {
-        console.warn(
-          "No se pudo desacoplar la pista:",
-          exception,
-        );
-      }
+      closeRealtimeConnection();
 
+      return;
+    }
 
-      stopLocalMicrophone();
+    /*
+     * En WebRTC con VAD apagado,
+     * commit finaliza el turno.
+     */
+    dataChannel.send(
+      JSON.stringify({
+        type: "input_audio_buffer.commit",
+      }),
+    );
 
+    clearFinalizationTimeout();
 
-      setState(
-        "transcribing",
-      );
+    finalizationTimeoutRef.current = setTimeout(() => {
+      const partial = partialTranscriptRef.current.trim();
 
-
-      if (
-        !dataChannel ||
-        dataChannel.readyState !==
-          "open"
-      ) {
-        failRecording(
-          "Se perdió la conexión de voz.",
-        );
-
-
-        closeRealtimeConnection();
-
+      if (partial) {
+        finishSuccessfully(partial);
 
         return;
       }
 
-
-      /*
-       * En WebRTC con VAD apagado,
-       * commit finaliza el turno.
-       */
-      dataChannel.send(
-        JSON.stringify({
-          type:
-            "input_audio_buffer.commit",
-        }),
-      );
-
-
-      clearFinalizationTimeout();
-
-
-      finalizationTimeoutRef.current =
-        setTimeout(
-          () => {
-            const partial =
-              partialTranscriptRef
-                .current
-                .trim();
-
-
-            if (
-              partial
-            ) {
-              finishSuccessfully(
-                partial,
-              );
-
-              return;
-            }
-
-
-            failRecording(
-              "OpenAI no devolvió una transcripción para este audio.",
-            );
-          },
-          10_000,
-        );
-    };
-
+      failRecording("OpenAI no devolvió una transcripción para este audio.");
+    }, 10_000);
+  };
 
   /*
    * ============================
@@ -1496,77 +776,43 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const cancelRecording =
-    async () => {
-      if (
-        state ===
-        "idle"
-      ) {
-        return;
-      }
+  const cancelRecording = async () => {
+    if (state === "idle") {
+      return;
+    }
 
+    const track = audioTrackRef.current;
 
-      const track =
-        audioTrackRef.current;
+    if (track) {
+      track.enabled = false;
+    }
 
+    try {
+      await audioSenderRef.current?.replaceTrack(null);
+    } catch {
+      // Nada que hacer.
+    }
 
-      if (
-        track
-      ) {
-        track.enabled =
-          false;
-      }
+    stopLocalMicrophone();
 
+    const dataChannel = dataChannelRef.current;
 
-      try {
-        await audioSenderRef
-          .current
-          ?.replaceTrack(
-            null,
-          );
-      } catch {
-        // Nada que hacer.
-      }
-
-
-      stopLocalMicrophone();
-
-
-      const dataChannel =
-        dataChannelRef.current;
-
-
-      if (
-        dataChannel &&
-        dataChannel.readyState ===
-          "open"
-      ) {
-        dataChannel.send(
-          JSON.stringify({
-            type:
-              "input_audio_buffer.clear",
-          }),
-        );
-      }
-
-
-      clearFinalizationTimeout();
-
-
-      partialTranscriptRef.current =
-        "";
-
-
-      setLiveTranscript(
-        "",
+    if (dataChannel && dataChannel.readyState === "open") {
+      dataChannel.send(
+        JSON.stringify({
+          type: "input_audio_buffer.clear",
+        }),
       );
+    }
 
+    clearFinalizationTimeout();
 
-      setState(
-        "idle",
-      );
-    };
+    partialTranscriptRef.current = "";
 
+    setLiveTranscript("");
+
+    setState("idle");
+  };
 
   /*
    * ============================
@@ -1574,26 +820,17 @@ export function useVoiceRecorder({
    * ============================
    */
 
-  const toggleRecording =
-    async () => {
-      if (
-        state ===
-        "recording"
-      ) {
-        await stopRecording();
+  const toggleRecording = async () => {
+    if (state === "recording") {
+      await stopRecording();
 
-        return;
-      }
+      return;
+    }
 
-
-      if (
-        state ===
-        "idle"
-      ) {
-        await startRecording();
-      }
-    };
-
+    if (state === "idle") {
+      await startRecording();
+    }
+  };
 
   /*
    * ============================
@@ -1605,19 +842,6 @@ export function useVoiceRecorder({
    * NO crea WebRTC.
    */
   useEffect(() => {
-    void getRealtimeSession()
-      .catch(
-        (
-          exception,
-        ) => {
-          console.warn(
-            "No se pudo precargar la sesión Realtime:",
-            exception,
-          );
-        },
-      );
-
-
     return () => {
       clearFinalizationTimeout();
 
@@ -1627,7 +851,6 @@ export function useVoiceRecorder({
     };
   }, []);
 
-
   return {
     state,
     error,
@@ -1636,13 +859,9 @@ export function useVoiceRecorder({
     waveform,
     liveTranscript,
 
-    isRecording:
-      state ===
-      "recording",
+    isRecording: state === "recording",
 
-    isTranscribing:
-      state ===
-      "transcribing",
+    isTranscribing: state === "transcribing",
 
     startRecording,
     stopRecording,

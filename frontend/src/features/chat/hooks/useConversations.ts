@@ -72,27 +72,25 @@ export function useSendConversationMessage() {
         queryClient.invalidateQueries({
           queryKey: ["documents"],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["usage"],
+        }),
       ]);
     },
   });
 }
 
 export function useRenameConversation() {
-  const queryClient =
-    useQueryClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn:
-      renameConversation,
+    mutationFn: renameConversation,
 
-    onSuccess:
-      async () => {
-        await queryClient
-          .invalidateQueries({
-            queryKey:
-              conversationKeys.all,
-          });
-      },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: conversationKeys.all,
+      });
+    },
   });
 }
 

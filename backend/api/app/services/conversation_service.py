@@ -20,7 +20,7 @@ conversations_table = dynamodb.Table(
 
 
 def create_conversation(
-    user_id: str = "default",
+    user_id: str,
     title: str = "Nueva conversación",
 ) -> dict:
     conversation_id = str(uuid4())
@@ -61,7 +61,7 @@ def create_conversation(
     }
 
 def list_conversations(
-    user_id: str = "default",
+    user_id: str,
 ) -> list[dict]:
     response = conversations_table.query(
         IndexName="UserConversationsIndex",

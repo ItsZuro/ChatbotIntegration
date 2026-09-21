@@ -20,6 +20,7 @@ audit_table = dynamodb.Table(
 
 def write_audit_record(
     request_id: str,
+    user_id: str,
     user_message: str | None,
     status: str,
     response_id: str | None = None,
@@ -30,6 +31,7 @@ def write_audit_record(
     try:
         item = {
             "request_id": request_id,
+            "user_id": user_id,
             "timestamp": datetime.now(
                 timezone.utc
             ).isoformat(),

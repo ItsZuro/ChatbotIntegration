@@ -56,19 +56,38 @@ def _get_bucket_name() -> str:
     return bucket_name
 
 
+def _get_user_prefix(
+    user_id: str,
+) -> str:
+    if not user_id:
+        raise ValueError(
+            "user_id es obligatorio."
+        )
+
+    return f"uploads/{user_id}/"
+
+
 def _validate_object_key(
     object_key: str,
+    user_id: str,
 ) -> None:
     if not object_key:
         raise ValueError(
             "object_key es obligatorio."
         )
 
+    expected_prefix = (
+        _get_user_prefix(
+            user_id
+        )
+    )
+
     if not object_key.startswith(
-        "uploads/"
+        expected_prefix
     ):
         raise ValueError(
-            "Ruta de documento inválida."
+            "No tienes acceso "
+            "a este documento."
         )
 
 
@@ -92,6 +111,7 @@ def _get_original_file_name(
 
 
 def generate_upload_url(
+    user_id: str,
     file_name: str,
     content_type: str,
 ) -> dict:
@@ -123,7 +143,8 @@ def generate_upload_url(
     )
 
     object_key = (
-        f"uploads/{now.year}/"
+        f"{_get_user_prefix(user_id)}"
+        f"{now.year}/"
         f"{now.month:02d}/"
         f"{uuid4()}-"
         f"{safe_file_name}"
@@ -164,6 +185,7 @@ def generate_upload_url(
 
 
 def list_documents(
+    user_id: str,
     limit: int = 100,
 ) -> dict:
     bucket_name = (
@@ -182,7 +204,9 @@ def list_documents(
         s3_client
         .list_objects_v2(
             Bucket=bucket_name,
-            Prefix="uploads/",
+            Prefix=_get_user_prefix(
+                user_id
+            ),
             MaxKeys=safe_limit,
         )
     )
@@ -233,10 +257,12 @@ def list_documents(
 
 
 def generate_download_url(
+    user_id: str,
     object_key: str,
 ) -> dict:
     _validate_object_key(
-        object_key
+        object_key=object_key,
+        user_id=user_id,
     )
 
     bucket_name = (
@@ -373,10 +399,12 @@ def _extract_docx(
 
 
 def extract_document_text(
+    user_id: str,
     object_key: str,
 ) -> str:
     _validate_object_key(
-        object_key
+        object_key=object_key,
+        user_id=user_id,
     )
 
     bucket_name = (
@@ -480,10 +508,12 @@ def extract_document_text(
 
 
 def delete_document(
+    user_id: str,
     object_key: str,
 ) -> dict:
     _validate_object_key(
-        object_key
+        object_key=object_key,
+        user_id=user_id,
     )
 
     bucket_name = (

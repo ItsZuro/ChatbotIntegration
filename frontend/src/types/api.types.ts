@@ -113,3 +113,18 @@ export interface DeleteDocumentResponse {
   deleted_versions: number;
 }
 
+export interface UsageResource {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
+export interface UsageSummaryResponse {
+  date: string;
+  time_zone: string;
+  usage: {
+    assistant: UsageResource;
+    audio: UsageResource;
+    realtime: UsageResource;
+  };
+}

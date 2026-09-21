@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     HTTPException,
     UploadFile,
@@ -25,6 +26,18 @@ from app.schemas.audio import (
 from app.services.realtime_transcription_service import (
     create_realtime_transcription_secret,
 )
+
+from app.core.security import (
+    get_current_user,
+)
+from app.schemas.auth import (
+    CurrentUser,
+)
+from app.services.usage_service import (
+    UsageLimitExceeded,
+    consume_request_quota,
+)
+
 
 
 router = APIRouter(
@@ -57,6 +70,9 @@ ALLOWED_EXTENSIONS = {
 )
 def transcribe_audio_file(
     file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
     file_name = (
         file.filename
@@ -105,6 +121,26 @@ def transcribe_audio_file(
         )
 
     try:
+        consume_request_quota(
+            user_id=current_user.sub,
+            resource="audio",
+            minute_limit=(
+                settings
+                .audio_requests_per_minute
+            ),
+            daily_limit=(
+                settings
+                .audio_requests_per_day
+            ),
+        )
+
+    except UsageLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+        ) from exc
+
+    try:
         api_key = (
             get_openai_api_key()
         )
@@ -147,7 +183,31 @@ def transcribe_audio_file(
         RealtimeTranscriptionSessionResponse
     ),
 )
-def create_realtime_session():
+def create_realtime_session(
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
+):
+    try:
+        consume_request_quota(
+            user_id=current_user.sub,
+            resource="realtime",
+            minute_limit=(
+                settings
+                .realtime_sessions_per_minute
+            ),
+            daily_limit=(
+                settings
+                .realtime_sessions_per_day
+            ),
+        )
+
+    except UsageLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+        ) from exc
+
     try:
         api_key = (
             get_openai_api_key()
@@ -174,4 +234,3 @@ def create_realtime_session():
                 "en tiempo real."
             ),
         ) from exc
-    

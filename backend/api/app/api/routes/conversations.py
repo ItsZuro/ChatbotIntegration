@@ -2,6 +2,7 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Response,
+    Depends
 )
 
 from app.schemas.conversations import (
@@ -33,8 +34,13 @@ from app.services.assistant_service import run_assistant
 from app.services.audit_service import write_audit_record
 from app.services.documents_service import extract_document_text
 from app.services.secrets_service import get_openai_api_key
-
-from fastapi import Depends
+from app.core.config import (
+    get_settings,
+)
+from app.services.usage_service import (
+    UsageLimitExceeded,
+    consume_request_quota,
+)
 
 from app.core.security import (
     get_current_user,
@@ -43,6 +49,7 @@ from app.schemas.auth import (
     CurrentUser,
 )
 
+settings = get_settings()
 
 router = APIRouter(
     prefix="/conversations",
@@ -130,6 +137,25 @@ def send_conversation_message(
         )
 
     try:
+        consume_request_quota(
+            user_id=current_user.sub,
+            resource="assistant",
+            minute_limit=(
+                settings
+                .assistant_requests_per_minute
+            ),
+            daily_limit=(
+                settings
+                .assistant_requests_per_day
+            ),
+        )
+    except UsageLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+        ) from exc
+
+    try:
         save_message(
             conversation_id=conversation_id,
             role="user",
@@ -140,6 +166,7 @@ def send_conversation_message(
 
         if request.object_key:
             document_text = extract_document_text(
+                user_id=current_user.sub,
                 object_key=request.object_key,
             )
 
@@ -174,13 +201,13 @@ def send_conversation_message(
 
         write_audit_record(
             request_id=request_id,
+            user_id=current_user.sub,
             user_message=request.message,
             status="SUCCESS",
             response_id=result["response_id"],
             final_response=result["response"],
             executed_tools=result["executed_tools"],
         )
-
         return {
             "request_id": request_id,
             "conversation_id": conversation_id,
@@ -192,6 +219,7 @@ def send_conversation_message(
     except Exception as exc:
         write_audit_record(
             request_id=request_id,
+            user_id=current_user.sub,
             user_message=request.message,
             status="ERROR",
             error_type=type(exc).__name__,
@@ -204,21 +232,34 @@ def send_conversation_message(
 
 @router.patch(
     "/{conversation_id}",
-    response_model=(
-        ConversationResponse
-    ),
+    response_model=ConversationResponse,
 )
 def rename_existing_conversation(
     conversation_id: str,
     request: RenameConversationRequest,
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
 ):
-    conversation = (
-        rename_conversation(
-            conversation_id=(
-                conversation_id
-            ),
-            title=request.title,
+    existing_conversation = (
+        get_user_conversation(
+            conversation_id=conversation_id,
+            user_id=current_user.sub,
         )
+    )
+
+    if not existing_conversation:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "La conversación "
+                "no existe."
+            ),
+        )
+
+    conversation = rename_conversation(
+        conversation_id=conversation_id,
+        title=request.title,
     )
 
     if not conversation:

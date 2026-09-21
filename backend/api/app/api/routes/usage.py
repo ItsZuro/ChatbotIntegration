@@ -9,29 +9,29 @@ from app.core.security import (
 from app.schemas.auth import (
     CurrentUser,
 )
-from app.schemas.dashboard import (
-    DashboardSummaryResponse,
+from app.schemas.usage import (
+    UsageSummaryResponse,
 )
-from app.services.dashboard_service import (
-    get_dashboard_summary,
+from app.services.usage_service import (
+    get_usage_summary,
 )
 
 
 router = APIRouter(
-    prefix="/dashboard",
-    tags=["Dashboard"],
+    prefix="/usage",
+    tags=["Usage"],
 )
 
 
 @router.get(
-    "/summary",
-    response_model=DashboardSummaryResponse,
+    "/me",
+    response_model=UsageSummaryResponse,
 )
-def get_summary(
+def get_my_usage(
     current_user: CurrentUser = Depends(
         get_current_user
     ),
 ):
-    return get_dashboard_summary(
+    return get_usage_summary(
         user_id=current_user.sub,
     )

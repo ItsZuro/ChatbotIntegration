@@ -82,6 +82,37 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  # =========================================================
+  # DYNAMODB - CUOTAS DE USO
+  # =========================================================
+
+  UtpAssistantUsageTable:
+    Type: AWS::DynamoDB::Table
+
+    Properties:
+      TableName: utp-assistant-usage
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+
+        - AttributeName: sk
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+        - AttributeName: sk
+          KeyType: RANGE
+
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+      SSESpecification:
+        SSEEnabled: true
 
   # =========================================================
   # S3 - DOCUMENTOS
@@ -114,10 +145,13 @@ Resources:
               - '*'
 
             AllowedMethods:
+              - GET
               - PUT
 
             AllowedOrigins:
               - http://localhost:5173
+              - http://127.0.0.1:5173
+              - https://utp-assistant-psi.vercel.app
 
             ExposedHeaders:
               - ETag
@@ -219,3 +253,8 @@ Outputs:
     Description: Cognito App Client del frontend
     Value:
       Ref: UtpAssistantUserPoolClient
+
+  UsageTableName:
+    Description: Tabla DynamoDB de cuotas de uso
+    Value:
+      Ref: UtpAssistantUsageTable
