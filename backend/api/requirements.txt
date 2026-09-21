@@ -9,3 +9,4 @@ httpx
 python-docx
 pypdf
 PyJWT[crypto]
+tzdata
