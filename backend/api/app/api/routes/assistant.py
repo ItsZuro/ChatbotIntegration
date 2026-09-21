@@ -62,6 +62,10 @@ def send_message(
                 settings
                 .assistant_requests_per_day
             ),
+            global_daily_limit=(
+                settings
+                .assistant_global_requests_per_day
+            ),
         )
 
     except UsageLimitExceeded as exc:
@@ -140,5 +144,3 @@ def send_message(
                 "la solicitud."
             ),
         ) from exc
-
-

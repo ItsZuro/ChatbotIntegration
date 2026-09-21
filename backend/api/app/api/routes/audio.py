@@ -132,6 +132,10 @@ def transcribe_audio_file(
                 settings
                 .audio_requests_per_day
             ),
+            global_daily_limit=(
+                settings
+                .audio_global_requests_per_day
+            ),
         )
 
     except UsageLimitExceeded as exc:
@@ -200,6 +204,10 @@ def create_realtime_session(
                 settings
                 .realtime_sessions_per_day
             ),
+            global_daily_limit=(
+                settings
+                .realtime_global_sessions_per_day
+            ),
         )
 
     except UsageLimitExceeded as exc:
@@ -234,5 +242,3 @@ def create_realtime_session(
                 "en tiempo real."
             ),
         ) from exc
-
-
