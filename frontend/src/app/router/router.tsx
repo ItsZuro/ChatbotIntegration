@@ -21,6 +21,9 @@ import {
 import {
   ConfirmPage,
 } from "../../pages/auth/ConfirmPage";
+import {
+  IntegrationsPage,
+} from "../../pages/IntegrationsPage";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -55,6 +58,17 @@ const loginRoute = createRoute({
   path: "/auth/login",
   component: LoginPage,
 });
+
+const integrationsRoute =
+  createRoute({
+    getParentRoute:
+      () => rootRoute,
+
+    path: "/integrations",
+
+    component:
+      IntegrationsPage,
+  });
 
 
 const registerRoute = createRoute({
@@ -99,12 +113,14 @@ const routeTree =
     dashboardRoute,
     documentsRoute,
     activityRoute,
+    integrationsRoute,
     newRequestRoute,
     loginRoute,
     registerRoute,
     confirmRoute,
   ]);
 
+  
 export const router = createRouter({
   routeTree,
 });

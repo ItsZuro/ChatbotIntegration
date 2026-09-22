@@ -14,6 +14,7 @@ from app.services.jira_service import (
 def execute_tool(
     tool_name: str,
     arguments: dict,
+    user_id: str | None = None,
 ) -> dict:
     if tool_name == (
         "actualizar_contacto_en_hubspot"
@@ -90,7 +91,18 @@ def execute_tool(
     if tool_name == (
         "agendar_reunion_en_google_calendar"
     ):
+        if not user_id:
+            return {
+                "success": False,
+                "error": (
+                    "No se pudo identificar "
+                    "al usuario para acceder "
+                    "a Google Calendar."
+                ),
+            }
+
         return create_google_calendar_event(
+            user_id=user_id,
             titulo=arguments[
                 "titulo"
             ],

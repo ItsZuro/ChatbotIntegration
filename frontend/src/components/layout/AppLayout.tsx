@@ -13,6 +13,7 @@ import {
   Stack,
   Text,
   TextInput,
+
   Tooltip,
 } from "@mantine/core";
 
@@ -25,6 +26,7 @@ import {
   LogOut,
   MessageSquarePlus,
   MoreVertical,
+  Plug,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -66,6 +68,11 @@ const operationsNavigation = [
     icon: History,
     path: "/activity",
   },
+  {
+  label: "Integraciones",
+  icon: Plug,
+  path: "/integrations",
+},
 ];
 
 export function AppLayout() {

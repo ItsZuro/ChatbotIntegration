@@ -27,6 +27,9 @@ from app.api.routes.auth import (
 from app.api.routes.usage import (
     router as usage_router,
 )
+from app.api.routes.integrations import (
+    router as integrations_router,
+)
 
 api_router = APIRouter()
 
@@ -48,4 +51,7 @@ api_router.include_router(
 )
 api_router.include_router(
     usage_router
+)
+api_router.include_router(
+    integrations_router
 )

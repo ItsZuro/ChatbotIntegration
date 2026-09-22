@@ -115,6 +115,41 @@ Resources:
         SSEEnabled: true
 
   # =========================================================
+  # DYNAMODB - INTEGRACIONES POR USUARIO
+  # =========================================================
+
+  UtpAssistantIntegrationsTable:
+    Type: AWS::DynamoDB::Table
+
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TableName: utp-assistant-integrations
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+
+        - AttributeName: sk
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
+        - AttributeName: sk
+          KeyType: RANGE
+
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+      SSESpecification:
+        SSEEnabled: true
+
+  # =========================================================
   # S3 - DOCUMENTOS
   # =========================================================
 
@@ -258,3 +293,8 @@ Outputs:
     Description: Tabla DynamoDB de cuotas de uso
     Value:
       Ref: UtpAssistantUsageTable
+
+  IntegrationsTableName:
+    Description: Tabla DynamoDB de integraciones por usuario
+    Value:
+      Ref: UtpAssistantIntegrationsTable

@@ -440,6 +440,7 @@ def confirm_conversation_action(
                     "function_calls"
                 ]
             ),
+            user_id=current_user.sub,
         )
 
         if (

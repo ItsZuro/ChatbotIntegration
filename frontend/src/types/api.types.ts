@@ -153,3 +153,18 @@ export interface UsageSummaryResponse {
     realtime: UsageResource;
   };
 }
+
+export interface GoogleConnectResponse {
+  authorization_url: string;
+}
+
+export interface GoogleIntegrationStatusResponse {
+  provider: string;
+  connected: boolean;
+  connected_at: string | null;
+}
+
+export interface GoogleDisconnectResponse {
+  success: boolean;
+  provider: string;
+}

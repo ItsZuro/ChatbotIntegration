@@ -90,6 +90,7 @@ def confirm_tool_calls(
     api_key: str,
     previous_response_id: str,
     function_calls: list[dict],
+    user_id: str,
 ) -> dict:
     tool_outputs = []
     executed_tools = []
@@ -106,6 +107,7 @@ def confirm_tool_calls(
         tool_result = execute_tool(
             tool_name=tool_name,
             arguments=arguments,
+            user_id=user_id,
         )
 
         executed_tools.append(

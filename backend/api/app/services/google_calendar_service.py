@@ -13,6 +13,9 @@ from app.core.config import (
 from app.services.secrets_service import (
     get_json_secret,
 )
+from app.services.integrations_service import (
+    get_google_refresh_token,
+)
 
 
 settings = get_settings()
@@ -29,6 +32,7 @@ CALENDAR_BASE_URL = (
 
 def _get_access_token(
     config: dict,
+    refresh_token: str,
 ) -> str:
     response = httpx.post(
         TOKEN_URL,
@@ -43,11 +47,8 @@ def _get_access_token(
                     "GOOGLE_CLIENT_SECRET"
                 ]
             ),
-            "refresh_token": (
-                config[
-                    "GOOGLE_REFRESH_TOKEN"
-                ]
-            ),
+            "refresh_token":
+                refresh_token,
             "grant_type": (
                 "refresh_token"
             ),
@@ -148,6 +149,7 @@ def _build_event(
 
 
 def create_google_calendar_event(
+    user_id: str,
     titulo: str,
     fecha: str,
     hora_inicio: str,
@@ -181,6 +183,24 @@ def create_google_calendar_event(
             ),
         }
 
+    refresh_token = (
+        get_google_refresh_token(
+            user_id=user_id
+        )
+    )
+
+    if not refresh_token:
+        return {
+            "success": False,
+            "error": (
+                "Google Calendar "
+                "no está conectado "
+                "para este usuario."
+            ),
+            "error_code":
+                "google_calendar_not_connected",
+        }
+
     try:
         config = get_json_secret(
             settings.google_secret_id
@@ -188,7 +208,10 @@ def create_google_calendar_event(
 
         access_token = (
             _get_access_token(
-                config
+                config=config,
+                refresh_token=(
+                    refresh_token
+                ),
             )
         )
 

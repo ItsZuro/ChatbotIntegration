@@ -50,7 +50,22 @@ class Settings(BaseSettings):
     
 
     audit_table_name: str = "utp-assistant-audit"
-    conversations_table_name: str = "utp-assistant-conversations"
+    
+    conversations_table_name: str = (
+        "utp-assistant-conversations"
+    )
+
+    integrations_table_name: str = (
+        "utp-assistant-integrations"
+    )
+    google_oauth_redirect_uri: str = (
+        "http://localhost:8000/"
+        "api/integrations/google/callback"
+    )
+
+    frontend_base_url: str = (
+        "http://localhost:5173"
+    )
 
     cors_origins: str = (
         "http://localhost:5173,"
