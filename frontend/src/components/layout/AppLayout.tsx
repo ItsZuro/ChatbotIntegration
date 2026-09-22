@@ -32,6 +32,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useDisclosure } from "@mantine/hooks";
@@ -41,7 +42,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { useState } from "react";
-
+import {
+  useCurrentAppUser,
+} from "../../features/auth/hooks/useCurrentAppUser";
 import {
   useConversations,
   useDeleteConversation,
@@ -76,6 +79,7 @@ const operationsNavigation = [
 ];
 
 export function AppLayout() {
+
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] =
     useDisclosure(false);
 
@@ -84,6 +88,27 @@ export function AppLayout() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const queryClient = useQueryClient();
+
+  const {
+  data: currentUser,
+} = useCurrentAppUser();
+
+const isAdmin =
+  currentUser?.groups.includes(
+    "admins"
+  ) ?? false;
+
+  const navigationItems =
+  isAdmin
+    ? [
+        ...operationsNavigation,
+        {
+          label: "Administración",
+          icon: ShieldCheck,
+          path: "/admin/users",
+        },
+      ]
+    : operationsNavigation;
 
   const { mutateAsync: deleteConversation, isPending: deletingConversation } =
     useDeleteConversation();
@@ -602,7 +627,7 @@ export function AppLayout() {
             )}
 
             <Stack gap={4}>
-              {operationsNavigation.map((item) => {
+              {navigationItems.map((item) => {
                 const Icon = item.icon;
 
                 const active = pathname === item.path;

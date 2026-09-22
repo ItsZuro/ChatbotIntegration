@@ -126,6 +126,14 @@ def consume_request_quota(
         ).timestamp()
     )
 
+    effective_daily_limit = (
+        get_effective_daily_limit(
+            user_id=user_id,
+            resource=resource,
+            default_limit=daily_limit,
+        )
+    )
+
     transaction_items = [
         # 1. Límite por usuario / minuto
         _build_update(
@@ -147,7 +155,7 @@ def consume_request_quota(
             resource=resource,
             window="DAY",
             bucket=day_bucket,
-            limit=daily_limit,
+            limit=effective_daily_limit,
             expires_at=expires_at,
         ),
 
@@ -280,6 +288,132 @@ def _get_usage_count(
 
     return int(count)
 
+def get_quota_override(
+    user_id: str,
+) -> dict | None:
+    response = dynamodb_client.get_item(
+        TableName=settings.usage_table_name,
+        Key={
+            "pk": {
+                "S": f"USER#{user_id}",
+            },
+            "sk": {
+                "S": "QUOTA#OVERRIDE",
+            },
+        },
+        ConsistentRead=True,
+    )
+
+    item = response.get("Item")
+
+    if not item:
+        return None
+
+    return {
+        "assistant": int(
+            item.get(
+                "assistant_daily",
+                {"N": "0"},
+            )["N"]
+        ),
+        "audio": int(
+            item.get(
+                "audio_daily",
+                {"N": "0"},
+            )["N"]
+        ),
+        "realtime": int(
+            item.get(
+                "realtime_daily",
+                {"N": "0"},
+            )["N"]
+        ),
+    }
+
+
+def set_quota_override(
+    user_id: str,
+    assistant_daily: int,
+    audio_daily: int,
+    realtime_daily: int,
+) -> dict:
+    dynamodb_client.put_item(
+        TableName=settings.usage_table_name,
+        Item={
+            "pk": {
+                "S": f"USER#{user_id}",
+            },
+            "sk": {
+                "S": "QUOTA#OVERRIDE",
+            },
+            "assistant_daily": {
+                "N": str(
+                    assistant_daily
+                ),
+            },
+            "audio_daily": {
+                "N": str(
+                    audio_daily
+                ),
+            },
+            "realtime_daily": {
+                "N": str(
+                    realtime_daily
+                ),
+            },
+        },
+    )
+
+    return {
+        "assistant":
+            assistant_daily,
+        "audio":
+            audio_daily,
+        "realtime":
+            realtime_daily,
+    }
+
+
+def delete_quota_override(
+    user_id: str,
+) -> None:
+    dynamodb_client.delete_item(
+        TableName=settings.usage_table_name,
+        Key={
+            "pk": {
+                "S": f"USER#{user_id}",
+            },
+            "sk": {
+                "S": "QUOTA#OVERRIDE",
+            },
+        },
+    )
+
+
+def get_effective_daily_limit(
+    user_id: str,
+    resource: str,
+    default_limit: int,
+) -> int:
+    override = get_quota_override(
+        user_id
+    )
+
+    if not override:
+        return default_limit
+
+    custom_limit = override.get(
+        resource
+    )
+
+    if (
+        custom_limit is None
+        or custom_limit <= 0
+    ):
+        return default_limit
+
+    return custom_limit
+
 
 def get_usage_summary(
     user_id: str,
@@ -316,6 +450,15 @@ def get_usage_summary(
     for resource, limit in (
         resources.items()
     ):
+
+        effective_limit = (
+            get_effective_daily_limit(
+                user_id=user_id,
+                resource=resource,
+                default_limit=limit,
+            )
+        )
+        
         used = _get_usage_count(
             user_id=user_id,
             resource=resource,
@@ -325,10 +468,12 @@ def get_usage_summary(
 
         usage[resource] = {
             "used": used,
-            "limit": limit,
+            "limit":
+                effective_limit,
+
             "remaining": max(
                 0,
-                limit - used,
+                effective_limit - used,
             ),
         }
 
@@ -339,3 +484,55 @@ def get_usage_summary(
         ),
         "usage": usage,
     }
+
+def get_default_daily_limits() -> dict:
+    return {
+        "assistant":
+            settings
+            .assistant_requests_per_day,
+
+        "audio":
+            settings
+            .audio_requests_per_day,
+
+        "realtime":
+            settings
+            .realtime_sessions_per_day,
+    }
+
+
+def get_user_quota_settings(
+    user_id: str,
+) -> dict:
+    defaults = (
+        get_default_daily_limits()
+    )
+
+    override = get_quota_override(
+        user_id
+    )
+
+    if not override:
+        return {
+            "user_id": user_id,
+            "customized": False,
+            "limits": defaults,
+            "defaults": defaults,
+        }
+
+    return {
+        "user_id": user_id,
+        "customized": True,
+        "limits": {
+            "assistant":
+                override["assistant"],
+
+            "audio":
+                override["audio"],
+
+            "realtime":
+                override["realtime"],
+        },
+        "defaults": defaults,
+    }
+

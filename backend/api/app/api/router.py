@@ -30,6 +30,9 @@ from app.api.routes.usage import (
 from app.api.routes.integrations import (
     router as integrations_router,
 )
+from app.api.routes.admin import (
+    router as admin_router,
+)
 
 api_router = APIRouter()
 
@@ -54,4 +57,7 @@ api_router.include_router(
 )
 api_router.include_router(
     integrations_router
+)
+api_router.include_router(
+    admin_router
 )

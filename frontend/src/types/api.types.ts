@@ -168,3 +168,32 @@ export interface GoogleDisconnectResponse {
   success: boolean;
   provider: string;
 }
+
+export interface AdminUser {
+  sub: string;
+  email: string | null;
+  status: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface AdminQuotaLimits {
+  assistant: number;
+  audio: number;
+  realtime: number;
+}
+
+export interface AdminQuotaResponse {
+  user_id: string;
+  customized: boolean;
+  limits: AdminQuotaLimits;
+  defaults: AdminQuotaLimits;
+}
+
+export interface CurrentUserResponse {
+  sub: string;
+  username: string | null;
+  groups: string[];
+}
+
+

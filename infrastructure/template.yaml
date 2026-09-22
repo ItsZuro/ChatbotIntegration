@@ -262,6 +262,49 @@ Resources:
 
 
   # =========================================================
+  # COGNITO - GRUPO DE ADMINISTRADORES
+  # =========================================================
+
+  UtpAssistantAdminsGroup:
+    Type: AWS::Cognito::UserPoolGroup
+
+    Properties:
+      GroupName: admins
+      Description: Administradores de UTP Assistant
+
+      UserPoolId:
+        Ref: UtpAssistantUserPool
+
+  # =========================================================
+  # IAM - ADMINISTRACIÓN DE USUARIOS COGNITO
+  # =========================================================
+
+  UtpAssistantAdminCognitoPolicy:
+    Type: AWS::IAM::ManagedPolicy
+
+    Properties:
+      ManagedPolicyName: UtpAssistantAdminCognitoManaged
+
+      Roles:
+        - utp-assistant-ecs-task-role
+
+      PolicyDocument:
+        Version: '2012-10-17'
+
+        Statement:
+          - Sid: ListApplicationUsers
+            Effect: Allow
+
+            Action:
+              - cognito-idp:ListUsers
+
+            Resource:
+              Fn::GetAtt:
+                - UtpAssistantUserPool
+                - Arn
+  
+
+  # =========================================================
   # IAM - ACCESO A INTEGRACIONES POR USUARIO
   # =========================================================
 

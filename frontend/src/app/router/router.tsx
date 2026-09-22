@@ -14,6 +14,9 @@ import { AboutPage } from "../../pages/AboutPage";
 import { PrivacyPage } from "../../pages/PrivacyPage";
 import { TermsPage } from "../../pages/TermsPage";
 import {
+  AdminUsersPage,
+} from "../../pages/AdminUsersPage";
+import {
   ForgotPasswordPage,
 } from "../../pages/auth/ForgotPasswordPage";
 import {
@@ -75,6 +78,12 @@ const termsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/terms",
   component: TermsPage,
+});
+
+const adminUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/users",
+  component: AdminUsersPage,
 });
 
 const loginRoute = createRoute({
@@ -144,6 +153,7 @@ const routeTree =
     documentsRoute,
     activityRoute,
     integrationsRoute,
+    adminUsersRoute,
     newRequestRoute,
 
     aboutRoute,

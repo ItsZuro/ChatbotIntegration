@@ -159,4 +159,29 @@ def get_current_user(
         username=payload.get(
             "username"
         ),
+        groups=payload.get(
+            "cognito:groups",
+            [],
+        ),
     )
+
+def require_admin(
+    current_user: CurrentUser = Depends(
+        get_current_user
+    ),
+) -> CurrentUser:
+    if (
+        "admins"
+        not in current_user.groups
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "Se requieren permisos "
+                "de administrador."
+            ),
+        )
+
+    return current_user
