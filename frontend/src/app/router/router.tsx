@@ -14,6 +14,9 @@ import { AboutPage } from "../../pages/AboutPage";
 import { PrivacyPage } from "../../pages/PrivacyPage";
 import { TermsPage } from "../../pages/TermsPage";
 import {
+  ForgotPasswordPage,
+} from "../../pages/auth/ForgotPasswordPage";
+import {
   LoginPage,
 } from "../../pages/auth/LoginPage";
 
@@ -98,6 +101,12 @@ const registerRoute = createRoute({
   component: RegisterPage,
 });
 
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/forgot-password",
+  component: ForgotPasswordPage,
+});
+
 
 const confirmRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -144,6 +153,7 @@ const routeTree =
     loginRoute,
     registerRoute,
     confirmRoute,
+    forgotPasswordRoute,
   ]);
   
 export const router = createRouter({

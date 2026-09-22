@@ -95,12 +95,20 @@ export function LoginPage() {
             required
             {...form.getInputProps("email")}
           />
-
           <PasswordInput
             label="Contraseña"
             required
             {...form.getInputProps("password")}
           />
+          
+          <Anchor
+            component={Link}
+            to="/auth/forgot-password"
+            size="sm"
+            ta="right"
+          >
+            ¿Olvidaste tu contraseña?
+          </Anchor>
 
           <Button
             type="submit"
@@ -115,7 +123,6 @@ export function LoginPage() {
           >
             Iniciar sesión
           </Button>
-
           <Text size="sm" ta="center" c="dimmed">
             ¿No tienes una cuenta?{" "}
             <Anchor component={Link} to="/auth/register">

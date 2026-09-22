@@ -1,5 +1,7 @@
 import {
+  confirmResetPassword,
   confirmSignUp,
+  resetPassword,
   signIn,
   signOut,
   signUp,
@@ -46,4 +48,25 @@ export async function loginUser(
 
 export async function logoutUser() {
   await signOut();
+}
+
+export async function requestPasswordReset(
+  email: string,
+) {
+  return resetPassword({
+    username: email,
+  });
+}
+
+
+export async function confirmPasswordReset(
+  email: string,
+  code: string,
+  newPassword: string,
+) {
+  return confirmResetPassword({
+    username: email,
+    confirmationCode: code,
+    newPassword,
+  });
 }
