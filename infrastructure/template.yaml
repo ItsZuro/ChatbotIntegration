@@ -82,6 +82,7 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+
   # =========================================================
   # DYNAMODB - CUOTAS DE USO
   # =========================================================
@@ -113,6 +114,7 @@ Resources:
 
       SSESpecification:
         SSEEnabled: true
+
 
   # =========================================================
   # DYNAMODB - INTEGRACIONES POR USUARIO
@@ -148,6 +150,7 @@ Resources:
 
       SSESpecification:
         SSEEnabled: true
+
 
   # =========================================================
   # S3 - DOCUMENTOS
@@ -225,7 +228,7 @@ Resources:
         RecoveryMechanisms:
           - Name: verified_email
             Priority: 1
-            
+
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
 
@@ -256,6 +259,38 @@ Resources:
         AccessToken: hours
         IdToken: hours
         RefreshToken: days
+
+
+  # =========================================================
+  # IAM - ACCESO A INTEGRACIONES POR USUARIO
+  # =========================================================
+
+  UtpAssistantIntegrationsDynamoDBPolicy:
+    Type: AWS::IAM::ManagedPolicy
+
+    Properties:
+      ManagedPolicyName: UtpAssistantIntegrationsDynamoDBManaged
+
+      Roles:
+        - utp-assistant-ecs-task-role
+
+      PolicyDocument:
+        Version: '2012-10-17'
+
+        Statement:
+          - Sid: UserIntegrationsDynamoDB
+            Effect: Allow
+
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:DeleteItem
+              - dynamodb:UpdateItem
+
+            Resource:
+              Fn::GetAtt:
+                - UtpAssistantIntegrationsTable
+                - Arn
 
 
 Outputs:
@@ -289,10 +324,12 @@ Outputs:
     Value:
       Ref: UtpAssistantUserPoolClient
 
+
   UsageTableName:
     Description: Tabla DynamoDB de cuotas de uso
     Value:
       Ref: UtpAssistantUsageTable
+
 
   IntegrationsTableName:
     Description: Tabla DynamoDB de integraciones por usuario
