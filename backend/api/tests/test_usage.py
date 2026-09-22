@@ -29,6 +29,12 @@ def test_usage_summary_uses_daily_limits(
         fake_get_usage_count,
     )
 
+    monkeypatch.setattr(
+        usage_service,
+        "get_quota_override",
+        lambda user_id: None,
+    )
+
     result = (
         usage_service
         .get_usage_summary(
@@ -73,6 +79,12 @@ def test_request_quota_includes_global_limit(
         usage_service,
         "dynamodb_client",
         FakeDynamoDBClient(),
+    )
+
+    monkeypatch.setattr(
+        usage_service,
+        "get_quota_override",
+        lambda user_id: None,
     )
 
     usage_service.consume_request_quota(
@@ -122,3 +134,66 @@ def test_request_quota_includes_global_limit(
         ][":limit"]["N"]
         == "60"
     )
+
+def test_usage_summary_uses_custom_quota_override(
+    monkeypatch,
+):
+    counts = {
+        "assistant": 12,
+        "audio": 3,
+        "realtime": 1,
+    }
+
+    def fake_get_usage_count(
+        user_id,
+        resource,
+        window,
+        bucket,
+    ):
+        assert user_id == "teacher-user"
+        assert window == "DAY"
+
+        return counts[resource]
+
+    monkeypatch.setattr(
+        usage_service,
+        "_get_usage_count",
+        fake_get_usage_count,
+    )
+
+    monkeypatch.setattr(
+        usage_service,
+        "get_quota_override",
+        lambda user_id: {
+            "assistant": 100,
+            "audio": 20,
+            "realtime": 10,
+        },
+    )
+
+    result = (
+        usage_service
+        .get_usage_summary(
+            "teacher-user"
+        )
+    )
+
+    usage = result["usage"]
+
+    assert usage["assistant"] == {
+        "used": 12,
+        "limit": 100,
+        "remaining": 88,
+    }
+
+    assert usage["audio"] == {
+        "used": 3,
+        "limit": 20,
+        "remaining": 17,
+    }
+
+    assert usage["realtime"] == {
+        "used": 1,
+        "limit": 10,
+        "remaining": 9,
+    }
