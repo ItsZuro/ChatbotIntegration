@@ -10,6 +10,9 @@ import { ActivityPage } from "../../pages/ActivityPage";
 import { ChatPage } from "../../pages/ChatPage";
 import { DashboardPage } from "../../pages/DashboardPage";
 import { DocumentsPage } from "../../pages/DocumentsPage";
+import { AboutPage } from "../../pages/AboutPage";
+import { PrivacyPage } from "../../pages/PrivacyPage";
+import { TermsPage } from "../../pages/TermsPage";
 import {
   LoginPage,
 } from "../../pages/auth/LoginPage";
@@ -51,6 +54,24 @@ const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/activity",
   component: ActivityPage,
+});
+
+const aboutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/about",
+  component: AboutPage,
+});
+
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacy",
+  component: PrivacyPage,
+});
+
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/terms",
+  component: TermsPage,
 });
 
 const loginRoute = createRoute({
@@ -115,11 +136,15 @@ const routeTree =
     activityRoute,
     integrationsRoute,
     newRequestRoute,
+
+    aboutRoute,
+    privacyRoute,
+    termsRoute,
+
     loginRoute,
     registerRoute,
     confirmRoute,
   ]);
-
   
 export const router = createRouter({
   routeTree,

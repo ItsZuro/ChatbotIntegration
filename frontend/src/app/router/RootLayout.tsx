@@ -20,12 +20,16 @@ export function RootLayout() {
     select: (state) => state.location.pathname,
   });
 
-  const isAuthRoute = pathname.startsWith("/auth/");
+  const isPublicRoute =
+    pathname.startsWith("/auth/") ||
+    pathname === "/about" ||
+    pathname === "/privacy" ||
+    pathname === "/terms";
 
   const [authCheck, setAuthCheck] = useState<AuthCheck | null>(null);
 
   useEffect(() => {
-    if (isAuthRoute) {
+    if (isPublicRoute) {
       return;
     }
 
@@ -65,9 +69,9 @@ export function RootLayout() {
     return () => {
       active = false;
     };
-  }, [isAuthRoute, navigate, pathname]);
+  }, [isPublicRoute, navigate, pathname]);
 
-  if (isAuthRoute) {
+  if (isPublicRoute) {
     return <Outlet />;
   }
 
